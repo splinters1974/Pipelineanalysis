@@ -1,0 +1,31 @@
+Opportunity Name,Account Name,Opportunity Owner,Stage,Amount,Probability (%),Close Date,Product Family,Region
+Acme Renewal,Acme Corp,Jane Smith,Proposal/Price Quote,"£120,000",50,15/03/2026,Platform,EMEA
+Globex Expansion,Globex,John Doe,Negotiation/Review,"£85,500",75,22/06/2026,Services,EMEA
+Initech Upgrade,Initech,Jane Smith,Qualification,"£40,000",25,10/09/2026,Platform,Americas
+Umbrella New Logo,Umbrella Inc,Sara Lee,Prospecting,"£200,000",10,05/11/2026,Platform,Americas
+Wayne Platform,Wayne Enterprises,John Doe,Closed Won,"£310,000",100,28/02/2026,Platform,EMEA
+Stark Services,Stark Industries,Sara Lee,Proposal/Price Quote,"£95,000",50,18/05/2026,Services,APAC
+Soylent Renewal,Soylent Corp,Jane Smith,Negotiation/Review,"£60,000",75,30/07/2026,Support,EMEA
+Hooli Migration,Hooli,Mike Brown,Qualification,"£150,000",25,12/10/2026,Platform,Americas
+Pied Piper Deal,Pied Piper,Mike Brown,Prospecting,"£25,000",10,03/12/2026,Services,Americas
+Vehement Upsell,Vehement Capital,Sara Lee,Closed Lost,"£70,000",0,19/04/2026,Support,APAC
+Acme Phase 2,Acme Corp,Jane Smith,Proposal/Price Quote,"£140,000",50,14/02/2027,Platform,EMEA
+Globex Platform,Globex,John Doe,Qualification,"£90,000",25,25/05/2027,Platform,EMEA
+Initech Services,Initech,Mike Brown,Prospecting,"£55,000",10,08/08/2027,Services,Americas
+Umbrella Renewal,Umbrella Inc,Sara Lee,Negotiation/Review,"£180,000",75,16/03/2027,Platform,Americas
+Stark Expansion,Stark Industries,John Doe,Proposal/Price Quote,"£220,000",50,21/09/2027,Platform,APAC
+Soylent Upgrade,Soylent Corp,Jane Smith,Qualification,"£48,000",25,11/11/2027,Support,EMEA
+Wayne Services,Wayne Enterprises,Mike Brown,Prospecting,"£130,000",10,02/06/2027,Services,EMEA
+Hooli Support,Hooli,Sara Lee,Proposal/Price Quote,"£75,000",50,29/01/2027,Support,Americas
+Cyberdyne New Logo,Cyberdyne,John Doe,Closed Won,"£500,000",100,30/07/2027,Platform,APAC
+Tyrell Platform,Tyrell Corp,Mike Brown,Negotiation/Review,"£160,000",75,12/12/2027,Platform,EMEA
+Old Deal 2025,Legacy Co,Jane Smith,Closed Won,"£90,000",100,10/05/2025,Platform,EMEA
+Stale Lead 2025,Old Account,John Doe,Prospecting,"£30,000",10,15/08/2025,Services,Americas
+Nexus Renewal,Nexus Ltd,Sara Lee,Qualification,"£65,000",25,07/04/2026,Support,APAC
+Oscorp Upsell,Oscorp,Mike Brown,Proposal/Price Quote,"£110,000",50,23/10/2026,Platform,Americas
+Massive Dynamic,Massive Dynamic,Jane Smith,Negotiation/Review,"£240,000",75,19/03/2027,Platform,EMEA
+Aperture Deal,Aperture Science,John Doe,Prospecting,"£45,000",10,28/06/2026,Services,EMEA
+Gekko Capital,Gekko Co,Sara Lee,Qualification,"£80,000",25,14/09/2027,Support,APAC
+Wonka Platform,Wonka Industries,Mike Brown,Proposal/Price Quote,"£175,000",50,05/02/2026,Platform,Americas
+Duff Expansion,Duff Brewing,Jane Smith,Closed Won,"£135,000",100,17/11/2026,Services,EMEA
+Monarch New Logo,Monarch Inc,John Doe,Prospecting,"£300,000",10,26/05/2027,Platform,APAC

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pipeline Analysis — Salesforce report viewer</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="wrap">
+      <h1>Pipeline Analysis</h1>
+      <p class="subtitle">Upload a Salesforce report (CSV) for a single view of this year and next year's pipeline. Your file never leaves this browser.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Upload -->
+    <section class="upload-section">
+      <div id="dropZone" class="drop-zone">
+        <div class="drop-inner">
+          <strong>Drop your Salesforce CSV here</strong>
+          <span>or</span>
+          <label class="btn">
+            Choose file
+            <input type="file" id="fileInput" accept=".csv,text/csv" hidden />
+          </label>
+          <button type="button" id="loadSampleBtn" class="btn btn-ghost">Load sample data</button>
+        </div>
+      </div>
+      <div id="statusBar" class="status-bar" style="display:none"></div>
+    </section>
+
+    <!-- Column mapping -->
+    <section id="mappingSection" class="card" style="display:none">
+      <h2>Column mapping</h2>
+      <p class="muted">We guessed which columns to use. Correct anything below — fields marked * are required.</p>
+      <div id="mappingPanel" class="mapping-grid"></div>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="dashboard" class="dashboard" style="display:none">
+      <div class="dashboard-controls card">
+        <label>Timeline by
+          <select id="granularitySelect">
+            <option value="quarter">Quarter</option>
+            <option value="month">Month</option>
+          </select>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="includeClosedToggle" />
+          Include closed deals (Won/Lost)
+        </label>
+      </div>
+
+      <div class="year-grid">
+        <!-- Current year column -->
+        <div class="year-col">
+          <h2 class="year-heading current">Current year — <span id="yearLabelCurrent"></span></h2>
+          <div class="kpi-row">
+            <div class="kpi"><span class="kpi-label">Total pipeline</span><span class="kpi-value" id="kpiTotal_current">—</span></div>
+            <div class="kpi"><span class="kpi-label">Weighted forecast</span><span class="kpi-value" id="kpiWeighted_current">—</span></div>
+            <div class="kpi"><span class="kpi-label">Opportunities</span><span class="kpi-value" id="kpiCount_current">—</span></div>
+          </div>
+          <p class="empty-note" id="emptyNote_current" style="display:none">No opportunities close in this year.</p>
+
+          <div class="chart-block">
+            <h3>Value by stage</h3>
+            <div class="chart-holder"><canvas id="stageChart_current"></canvas></div>
+            <table class="data-table" id="stageTable_current"></table>
+          </div>
+
+          <div class="chart-block">
+            <h3>Timeline</h3>
+            <div class="chart-holder"><canvas id="timelineChart_current"></canvas></div>
+          </div>
+
+          <div class="chart-block">
+            <h3>By owner</h3>
+            <div class="chart-holder"><canvas id="ownerChart_current"></canvas></div>
+            <table class="data-table" id="ownerTable_current"></table>
+          </div>
+
+          <div class="chart-block">
+            <h3>By product / region</h3>
+            <div class="chart-holder"><canvas id="productChart_current"></canvas></div>
+            <table class="data-table" id="regionTable_current"></table>
+          </div>
+        </div>
+
+        <!-- Next year column -->
+        <div class="year-col">
+          <h2 class="year-heading next">Following year — <span id="yearLabelNext"></span></h2>
+          <div class="kpi-row">
+            <div class="kpi"><span class="kpi-label">Total pipeline</span><span class="kpi-value" id="kpiTotal_next">—</span></div>
+            <div class="kpi"><span class="kpi-label">Weighted forecast</span><span class="kpi-value" id="kpiWeighted_next">—</span></div>
+            <div class="kpi"><span class="kpi-label">Opportunities</span><span class="kpi-value" id="kpiCount_next">—</span></div>
+          </div>
+          <p class="empty-note" id="emptyNote_next" style="display:none">No opportunities close in this year.</p>
+
+          <div class="chart-block">
+            <h3>Value by stage</h3>
+            <div class="chart-holder"><canvas id="stageChart_next"></canvas></div>
+            <table class="data-table" id="stageTable_next"></table>
+          </div>
+
+          <div class="chart-block">
+            <h3>Timeline</h3>
+            <div class="chart-holder"><canvas id="timelineChart_next"></canvas></div>
+          </div>
+
+          <div class="chart-block">
+            <h3>By owner</h3>
+            <div class="chart-holder"><canvas id="ownerChart_next"></canvas></div>
+            <table class="data-table" id="ownerTable_next"></table>
+          </div>
+
+          <div class="chart-block">
+            <h3>By product / region</h3>
+            <div class="chart-holder"><canvas id="productChart_next"></canvas></div>
+            <table class="data-table" id="regionTable_next"></table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer wrap">
+    <p>Runs entirely in your browser — no data is uploaded. Weighted forecast = Amount × win probability (or a stage-based estimate when the report has no probability column).</p>
+  </footer>
+
+  <!-- Vendored libraries (offline, no CDN) -->
+  <script src="vendor/papaparse.min.js"></script>
+  <script src="vendor/chart.umd.min.js"></script>
+
+  <!-- App modules (classic scripts so file:// works) -->
+  <script src="js/parse.js"></script>
+  <script src="js/mapping.js"></script>
+  <script src="js/analytics.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

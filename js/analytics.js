@@ -24,6 +24,44 @@
   ];
   var FALLBACK_WEIGHT = 0.20; // unknown stage
 
+  // --- Pipeline Health config (easy to tweak) ---
+
+  // A deal is "stale" if its Last Modified Date is older than this many days
+  // (or its close date is already in the past). Change this single value to
+  // re-tune staleness everywhere.
+  var STALE_THRESHOLD_DAYS = 30;
+
+  // Map Salesforce Product / Product Family values to Ameresco's five
+  // segments. Matching is case-insensitive substring, first match wins, so
+  // order from most specific to least. Anything unmatched falls into "Other".
+  // Update these rules as product naming in Salesforce evolves.
+  var SEGMENT_MAP = [
+    { match: 'i&c', segment: 'I&C' },
+    { match: 'c&i', segment: 'I&C' },
+    { match: 'commercial', segment: 'I&C' },
+    { match: 'industrial', segment: 'I&C' },
+    { match: 'street lighting', segment: 'Cities & Local Government' },
+    { match: 'local auth', segment: 'Cities & Local Government' },
+    { match: 'local gov', segment: 'Cities & Local Government' },
+    { match: 'council', segment: 'Cities & Local Government' },
+    { match: 'cities', segment: 'Cities & Local Government' },
+    { match: 'city', segment: 'Cities & Local Government' },
+    { match: 'nhs', segment: 'Public Sector' },
+    { match: 'school', segment: 'Public Sector' },
+    { match: 'university', segment: 'Public Sector' },
+    { match: 'public', segment: 'Public Sector' },
+    { match: 'grid', segment: 'Grid-Scale' },
+    { match: 'battery', segment: 'Grid-Scale' },
+    { match: 'storage', segment: 'Grid-Scale' },
+    { match: 'data centre', segment: 'Data Centres' },
+    { match: 'data center', segment: 'Data Centres' },
+    { match: 'datacent', segment: 'Data Centres' }
+  ];
+  // Canonical display order; "Other" is appended only when it has deals.
+  var SEGMENT_ORDER = ['I&C', 'Cities & Local Government', 'Public Sector',
+                       'Grid-Scale', 'Data Centres'];
+  var OTHER_SEGMENT = 'Other';
+
   var MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -77,6 +115,8 @@
       var product = mapping.product ? (r[mapping.product] || '—') : '—';
       var region = mapping.region ? (r[mapping.region] || '—') : '—';
       var name = mapping.name ? (r[mapping.name] || '') : '';
+      var lastModified = mapping.lastModified
+        ? PA.parse.parseDate(r[mapping.lastModified], dayFirst) : null;
 
       var prob = null;
       if (mapping.probability) prob = normProbability(r[mapping.probability]);
@@ -93,6 +133,7 @@
         product: product,
         region: region,
         name: name,
+        lastModified: lastModified,
         probability: prob,
         weighted: amount * prob,
         closed: isClosedStage(stage)
@@ -194,11 +235,112 @@
     return result;
   }
 
+  // Map a product/product-family value to one of the Ameresco segments.
+  function segmentFor(product) {
+    var p = String(product || '').toLowerCase();
+    for (var i = 0; i < SEGMENT_MAP.length; i++) {
+      if (p.indexOf(SEGMENT_MAP[i].match) !== -1) return SEGMENT_MAP[i].segment;
+    }
+    return OTHER_SEGMENT;
+  }
+
+  /*
+   * Pipeline-health view for the CURRENT year (derived from `today`).
+   *
+   *   healthMetrics(rows, mapping, targetValue, today[, options])
+   *
+   * targetValue : user-entered £ target (string or number); blank -> no coverage.
+   * today       : Date used for "current year", stale-by-close and stale-by-modified.
+   * options     : { includeClosed, dayFirst, stageWeights } — includeClosed
+   *               mirrors the dashboard toggle (closed Won/Lost are excluded
+   *               from all three panels unless it is true).
+   *
+   * Returns { currentYear, target, weightedForecast, coverageRatio,
+   *           coverageStatus, stale:{count,totalValue,items[]}, segments[],
+   *           hasLastModified }.
+   */
+  function healthMetrics(rows, mapping, targetValue, today, options) {
+    options = options || {};
+    today = today || new Date();
+    var currentYear = today.getFullYear();
+    var includeClosed = !!options.includeClosed;
+
+    var built = buildRecords(rows, mapping, options);
+    var current = built.records.filter(function (r) { return r.year === currentYear; });
+    var active = current.filter(function (r) { return includeClosed || !r.closed; });
+
+    // --- Panel 1: Coverage ---
+    var weightedForecast = 0;
+    active.forEach(function (r) { weightedForecast += r.weighted; });
+    var target = PA.parse.cleanNumber(targetValue);
+    if (isNaN(target) || target <= 0) target = null;
+    var coverageRatio = null, coverageStatus = null;
+    if (target != null) {
+      coverageRatio = (weightedForecast / target) * 100;
+      coverageStatus = coverageRatio >= 80 ? 'green'
+                     : (coverageRatio >= 50 ? 'amber' : 'red');
+    }
+
+    // --- Panel 2: Stale deals ---
+    var MS_PER_DAY = 86400000;
+    function daysSince(d) {
+      return d ? Math.floor((today.getTime() - d.getTime()) / MS_PER_DAY) : null;
+    }
+    var staleItems = active.filter(function (r) {
+      var pastClose = r.date.getTime() < today.getTime();
+      var modDays = daysSince(r.lastModified);
+      var staleByMod = modDays != null && modDays > STALE_THRESHOLD_DAYS;
+      return pastClose || staleByMod;
+    }).map(function (r) {
+      var modDays = daysSince(r.lastModified);
+      var daysPastClose = daysSince(r.date);
+      // Rank by whichever made it stale; biggest first.
+      var staleScore = Math.max(
+        daysPastClose > 0 ? daysPastClose : 0,
+        (modDays != null && modDays > STALE_THRESHOLD_DAYS) ? modDays : 0
+      );
+      return {
+        name: r.name, owner: r.owner, amount: r.amount,
+        closeDate: r.date, daysSinceModified: modDays, staleScore: staleScore
+      };
+    }).sort(function (a, b) { return b.staleScore - a.staleScore; });
+    var staleTotal = 0;
+    staleItems.forEach(function (it) { staleTotal += it.amount; });
+
+    // --- Panel 3: By segment ---
+    var segMap = {};
+    active.forEach(function (r) {
+      var seg = segmentFor(r.product);
+      if (!segMap[seg]) segMap[seg] = { key: seg, total: 0, count: 0 };
+      segMap[seg].total += r.amount;
+      segMap[seg].count += 1;
+    });
+    var segments = SEGMENT_ORDER.map(function (seg) {
+      return segMap[seg] || { key: seg, total: 0, count: 0 };
+    });
+    if (segMap[OTHER_SEGMENT]) segments.push(segMap[OTHER_SEGMENT]);
+
+    return {
+      currentYear: currentYear,
+      target: target,
+      weightedForecast: weightedForecast,
+      coverageRatio: coverageRatio,
+      coverageStatus: coverageStatus,
+      stale: { count: staleItems.length, totalValue: staleTotal, items: staleItems },
+      segments: segments,
+      hasLastModified: !!mapping.lastModified
+    };
+  }
+
   PA.analytics = {
     analyze: analyze,
     buildRecords: buildRecords,
+    healthMetrics: healthMetrics,
+    segmentFor: segmentFor,
     stageWeight: stageWeight,
     DEFAULT_STAGE_WEIGHTS: DEFAULT_STAGE_WEIGHTS,
+    SEGMENT_MAP: SEGMENT_MAP,
+    STALE_THRESHOLD_DAYS: STALE_THRESHOLD_DAYS,
     MONTH_LABELS: MONTH_LABELS
   };
 })(window.PA = window.PA || {});

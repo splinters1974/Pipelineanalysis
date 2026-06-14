@@ -120,6 +120,69 @@ main { padding: 24px 0 40px; }
 }
 .checkbox { display: flex; align-items: center; gap: 8px; font-weight: 500; }
 
+/* Pipeline Health card */
+.health-card { margin-bottom: 20px; }
+.health-card h2 { margin: 0 0 14px; font-size: 18px; }
+.health-panels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.health-panel {
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  min-width: 0;
+}
+.health-panel h3 { margin: 0 0 10px; font-size: 14px; }
+
+/* Coverage panel */
+.target-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
+.target-label input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.coverage-result { text-align: center; }
+.coverage-ratio { font-size: 40px; font-weight: 800; line-height: 1.1; }
+.coverage-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.coverage-result.green .coverage-ratio { color: #16a34a; }
+.coverage-result.amber .coverage-ratio { color: #d97706; }
+.coverage-result.red .coverage-ratio { color: #dc2626; }
+.coverage-result .muted { text-align: left; }
+
+/* Stale deals panel */
+.stale-summary { font-size: 14px; margin-bottom: 8px; }
+.stale-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+.stale-item {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stale-item:last-child { border-bottom: none; }
+.stale-name { font-weight: 600; font-size: 13px; }
+.stale-meta { font-size: 12px; color: var(--muted); }
+
+/* Segment panel chart needs a fixed height to render */
+#segmentPanel .chart-holder { height: 220px; }
+
+@media (max-width: 900px) {
+  .health-panels { grid-template-columns: 1fr; }
+}
+
 /* Year columns */
 .year-grid {
   display: grid;

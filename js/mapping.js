@@ -21,6 +21,8 @@
       hints: ['amount', 'opportunity amount', 'acv', 'arr', 'value', 'deal size', 'tcv'] },
     { key: 'closeDate', label: 'Close Date', required: true,
       hints: ['close date', 'closedate', 'close', 'expected close'] },
+    { key: 'lastModified', label: 'Last Modified Date', required: false,
+      hints: ['last modified date', 'last modified', 'modified date', 'last activity date', 'last activity'] },
     { key: 'stage', label: 'Stage', required: true,
       hints: ['stage', 'stage name', 'sales stage', 'opportunity stage'] },
     { key: 'probability', label: 'Probability', required: false,

@@ -82,6 +82,41 @@
     });
   }
 
+  // Horizontal bar of pipeline value per category; deal count shown in tooltip.
+  function horizontalBar(canvasId, labels, totals, counts, color, soft) {
+    destroy(canvasId);
+    var ctx = document.getElementById(canvasId).getContext('2d');
+    registry[canvasId] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Pipeline', data: totals,
+          backgroundColor: soft, borderColor: color, borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                var n = counts[ctx.dataIndex];
+                return currency(ctx.parsed.x) + ' · ' + n + (n === 1 ? ' deal' : ' deals');
+              }
+            }
+          }
+        },
+        scales: {
+          x: { beginAtZero: true, ticks: { callback: function (v) { return PA.format.compact(v); } } }
+        }
+      }
+    });
+  }
+
   function colorsForYear(which) {
     return which === 'next'
       ? { solid: COLORS.next, soft: COLORS.nextSoft }
@@ -92,6 +127,7 @@
     destroy: destroy,
     categoryBar: categoryBar,
     timelineChart: timelineChart,
+    horizontalBar: horizontalBar,
     colorsForYear: colorsForYear,
     COLORS: COLORS
   };

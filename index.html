@@ -53,6 +53,33 @@
         </label>
       </div>
 
+      <!-- Pipeline Health (full-width, current year) -->
+      <section class="health-card card" id="healthCard">
+        <h2>Pipeline Health — <span id="healthYearLabel"></span></h2>
+        <div class="health-panels">
+
+          <div class="health-panel" id="coveragePanel">
+            <h3>Coverage</h3>
+            <label class="target-label">Target (£)
+              <input type="text" id="targetInput" inputmode="numeric" placeholder="e.g. 2,000,000" />
+            </label>
+            <div id="coverageResult" class="coverage-result"></div>
+          </div>
+
+          <div class="health-panel" id="stalePanel">
+            <h3>Stale deals</h3>
+            <div id="staleSummary" class="stale-summary"></div>
+            <div id="staleList" class="stale-list"></div>
+          </div>
+
+          <div class="health-panel" id="segmentPanel">
+            <h3>By segment</h3>
+            <div class="chart-holder"><canvas id="segmentChart"></canvas></div>
+          </div>
+
+        </div>
+      </section>
+
       <div class="year-grid">
         <!-- Current year column -->
         <div class="year-col">

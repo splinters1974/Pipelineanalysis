@@ -21,6 +21,26 @@ For both the current year and next year, side by side:
 probability column it is used directly; otherwise the app estimates a
 probability from each opportunity's stage (see *Weighted forecast* below).
 
+## Pipeline Health
+
+A full-width **Pipeline Health** card sits above the year columns and focuses on
+the **current year**. It has three panels:
+
+1. **Coverage** — type a £ target; shows weighted-forecast ÷ target as a
+   colour-coded percentage (green ≥ 80%, amber 50–79%, red < 50%).
+2. **Stale deals** — flags open deals whose **Close Date is in the past** or
+   whose **Last Modified Date** is more than `STALE_THRESHOLD_DAYS` (default 30)
+   days old. Shows a count, total value and a scrollable list (most stale first).
+3. **By segment** — maps the Product / Product Family column to Ameresco's five
+   segments (I&C, Cities & Local Government, Public Sector, Grid-Scale, Data
+   Centres) and charts pipeline value per segment; unmapped products go to
+   *Other*.
+
+Both the stale threshold (`STALE_THRESHOLD_DAYS`) and the product→segment rules
+(`SEGMENT_MAP`) live at the top of `js/analytics.js` for easy editing. To map
+"days since last modified", include a **Last Modified Date** column in your
+report (optional — staleness still works off close dates without it).
+
 ## How to run
 
 ### Option A — just open it (simplest)
@@ -48,7 +68,7 @@ Then open <http://localhost:8000> and use **Load sample data** or upload your ow
 1. Go to **Reports** and open (or build) an **Opportunities** report.
 2. Make sure the report includes at least: **Amount**, **Close Date**, and
    **Stage**. Helpful extras: **Probability**, **Opportunity Owner**,
-   **Product / Product Family**, **Region / Territory**.
+   **Product / Product Family**, **Region / Territory**, **Last Modified Date**.
 3. Click the dropdown (▾) → **Export**.
 4. Choose **Details Only** and format **Comma Delimited (.csv)**, then export.
 5. Upload that file here.

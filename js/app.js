@@ -30,6 +30,7 @@
     results: null,
     timelineGranularity: 'quarter',
     includeClosed: false,
+    target: '',          // raw text from the coverage target input
     currentYear: 2026   // overridable; defaults to system year below
   };
   state.currentYear = new Date().getFullYear();
@@ -48,6 +49,7 @@
     el.status = $('statusBar');
     el.granularity = $('granularitySelect');
     el.includeClosed = $('includeClosedToggle');
+    el.targetInput = $('targetInput');
     el.yearLabels = { current: $('yearLabelCurrent'), next: $('yearLabelNext') };
 
     el.fileInput.addEventListener('change', function (e) {
@@ -75,6 +77,11 @@
     el.includeClosed.addEventListener('change', function () {
       state.includeClosed = el.includeClosed.checked;
       recompute(); render();
+    });
+    // Coverage target: re-render just the health card, no CSV re-parse.
+    el.targetInput.addEventListener('input', function () {
+      state.target = el.targetInput.value;
+      renderHealth();
     });
   }
 
@@ -156,6 +163,59 @@
 
     renderColumn('current', r.years[r.currentYear], r.currentYear);
     renderColumn('next', r.years[r.nextYear], r.nextYear);
+    renderHealth();
+  }
+
+  // Pipeline Health card — current year only. Safe to call on its own
+  // (e.g. when the target input changes) without re-parsing the CSV.
+  function renderHealth() {
+    if (!state.results || !state.table || !state.mapping) return;
+    var today = new Date();
+    var h = PA.analytics.healthMetrics(state.table.rows, state.mapping, state.target, today, {
+      includeClosed: state.includeClosed
+    });
+
+    $('healthYearLabel').textContent = h.currentYear;
+
+    // Panel 1 — Coverage
+    var cov = $('coverageResult');
+    if (h.coverageRatio == null) {
+      cov.className = 'coverage-result';
+      cov.innerHTML = '<p class="muted">Enter a target to see coverage.<br>Weighted forecast so far: <strong>' +
+        currency(h.weightedForecast) + '</strong></p>';
+    } else {
+      cov.className = 'coverage-result ' + h.coverageStatus;
+      cov.innerHTML =
+        '<div class="coverage-ratio">' + Math.round(h.coverageRatio) + '%</div>' +
+        '<div class="coverage-sub">' + compact(h.weightedForecast) +
+        ' weighted against ' + compact(h.target) + ' target</div>';
+    }
+
+    // Panel 2 — Stale deals
+    $('staleSummary').innerHTML = '<strong>' + h.stale.count + '</strong> stale ' +
+      (h.stale.count === 1 ? 'deal' : 'deals') + ' · ' + currency(h.stale.totalValue);
+    var listHtml = h.stale.items.map(function (it) {
+      var mod = it.daysSinceModified == null ? 'modified n/a'
+              : (it.daysSinceModified + 'd since modified');
+      return '<div class="stale-item">' +
+        '<span class="stale-name">' + escapeHtml(it.name || '(unnamed)') + '</span>' +
+        '<span class="stale-meta">' + escapeHtml(it.owner) + ' · ' + currency(it.amount) +
+        ' · close ' + fmtDate(it.closeDate) + ' · ' + mod + '</span>' +
+      '</div>';
+    }).join('');
+    $('staleList').innerHTML = listHtml || '<p class="muted">No stale deals — nice and fresh.</p>';
+
+    // Panel 3 — By segment
+    PA.charts.horizontalBar('segmentChart',
+      h.segments.map(function (s) { return s.key; }),
+      h.segments.map(function (s) { return s.total; }),
+      h.segments.map(function (s) { return s.count; }),
+      PA.charts.COLORS.current, PA.charts.COLORS.currentSoft);
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return d.getUTCDate() + ' ' + PA.analytics.MONTH_LABELS[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
   }
 
   function renderColumn(which, year, yearNum) {

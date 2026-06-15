@@ -20,6 +20,13 @@
     if (registry[id]) { registry[id].destroy(); delete registry[id]; }
   }
 
+  // Resize every live chart to fit its (possibly changed) container — used
+  // before printing so canvases reflow into the print layout instead of
+  // overflowing their boxes.
+  function resizeAll() {
+    Object.keys(registry).forEach(function (id) { registry[id].resize(); });
+  }
+
   function currency(n) { return PA.format.currency(n); }
 
   function baseOptions(extra) {
@@ -167,6 +174,7 @@
 
   PA.charts = {
     destroy: destroy,
+    resizeAll: resizeAll,
     categoryBar: categoryBar,
     timelineChart: timelineChart,
     horizontalBar: horizontalBar,

@@ -121,6 +121,8 @@ main { padding: 24px 0 40px; }
 .checkbox { display: flex; align-items: center; gap: 8px; font-weight: 500; }
 .export-actions { margin-left: auto; display: flex; gap: 10px; }
 .export-actions .btn { padding: 8px 14px; font-size: 13px; }
+.btn-danger { background: #fff; color: #b91c1c; border: 1px solid #fca5a5; }
+.btn-danger:hover { background: #fef2f2; filter: none; }
 
 /* Pipeline Health card */
 .health-card { margin-bottom: 20px; }
@@ -206,6 +208,30 @@ main { padding: 24px 0 40px; }
 .top-proposed { margin-top: 18px; }
 .top-proposed h3 { margin: 0 0 8px; font-size: 14px; }
 .data-table td.next-step { text-align: left; color: var(--muted); }
+.remove-proposed {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #b91c1c;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.remove-proposed:hover { background: #fef2f2; }
+.add-proposed { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.add-proposed label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.add-proposed select {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+}
+/* Totals row in breakdown tables */
+.data-table tfoot .total-row td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; }
 
 @media (max-width: 900px) {
   .insight-panels { grid-template-columns: 1fr; }
@@ -274,22 +300,32 @@ main { padding: 24px 0 40px; }
 }
 
 /* Print / Save as PDF: clean single-view layout */
+@page { margin: 12mm; }
 @media print {
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #fff; }
-  .app-header { background: #fff !important; color: #000; padding: 8px 0; }
+  /* Compact title, no gradient block (avoids a near-empty first page) */
+  .app-header { background: #fff !important; color: #000; padding: 0 0 6px; }
+  /* Hide everything that's input/UI chrome or not wanted in the report */
   .app-header .subtitle,
   .upload-section,
   #mappingSection,
   .dashboard-controls,
+  #coveragePanel,
+  .add-proposed,
+  .remove-proposed,
   .app-footer { display: none !important; }
-  .wrap { max-width: none; padding: 0 8px; }
-  /* Keep cards and charts from being split across pages */
-  .card, .year-col, .health-panel, .chart-block, .kpi { break-inside: avoid; page-break-inside: avoid; }
+  .wrap { max-width: none; padding: 0; }
+  .card { box-shadow: none; border-color: #ddd; }
+  /* Only avoid breaking SMALL blocks across pages. Avoiding breaks on whole
+     cards (which can be taller than a page) is what pushed the first card to
+     page 2 and left a blank first page. */
+  .chart-block, .insight-panel, .health-panel, .kpi, .stale-item, tr {
+    break-inside: avoid; page-break-inside: avoid;
+  }
   .year-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .health-panels, .insight-panels { grid-template-columns: 1fr 1fr 1fr; }
-  .insight-panel, .top-proposed { break-inside: avoid; page-break-inside: avoid; }
-  /* Show the whole stale list, not a scroll window */
+  /* Stack the doughnut/segment panels full width so legends don't overlap */
+  .health-panels, .insight-panels { grid-template-columns: 1fr; }
   .stale-list { max-height: none; overflow: visible; }
-  .chart-holder { height: 200px; }
+  .chart-holder { height: 240px; }
 }

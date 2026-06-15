@@ -24,6 +24,8 @@
   }
   PA.format = { currency: currency, compact: compact };
 
+  var STORAGE_KEY = 'pipelineAnalysis.v1';
+
   var state = {
     table: null,        // { headers, rows }
     mapping: null,
@@ -31,6 +33,8 @@
     timelineGranularity: 'quarter',
     includeClosed: false,
     target: '',          // raw text from the coverage target input
+    proposedRemoved: {}, // {name: true} manually removed from the top-10 list
+    proposedAdded: [],   // [name] manually added to the top-10 list
     currentYear: 2026   // overridable; defaults to system year below
   };
   state.currentYear = new Date().getFullYear();
@@ -52,6 +56,10 @@
     el.targetInput = $('targetInput');
     el.exportCsvBtn = $('exportCsvBtn');
     el.printBtn = $('printBtn');
+    el.resetBtn = $('resetBtn');
+    el.topProposedTable = $('topProposedTable');
+    el.addProposedSelect = $('addProposedSelect');
+    el.addProposedBtn = $('addProposedBtn');
     el.yearLabels = { current: $('yearLabelCurrent'), next: $('yearLabelNext') };
 
     el.fileInput.addEventListener('change', function (e) {
@@ -74,20 +82,43 @@
 
     el.granularity.addEventListener('change', function () {
       state.timelineGranularity = el.granularity.value;
-      render();
+      render(); saveState();
     });
     el.includeClosed.addEventListener('change', function () {
       state.includeClosed = el.includeClosed.checked;
-      recompute(); render();
+      recompute(); render(); saveState();
     });
     // Coverage target: re-render just the health card, no CSV re-parse.
     el.targetInput.addEventListener('input', function () {
       state.target = el.targetInput.value;
-      renderHealth();
+      renderHealth(); saveState();
     });
 
     el.exportCsvBtn.addEventListener('click', exportSummaryCsv);
     el.printBtn.addEventListener('click', function () { window.print(); });
+    el.resetBtn.addEventListener('click', resetAll);
+
+    // Manual edits to the top-10 proposed list (event delegation: rows redraw).
+    el.topProposedTable.addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('.remove-proposed');
+      if (!btn) return;
+      var name = btn.getAttribute('data-name');
+      state.proposedRemoved[name] = true;
+      state.proposedAdded = state.proposedAdded.filter(function (n) { return n !== name; });
+      renderInsights(); saveState();
+    });
+    el.addProposedBtn.addEventListener('click', function () {
+      var name = el.addProposedSelect.value;
+      if (!name) return;
+      delete state.proposedRemoved[name];
+      if (state.proposedAdded.indexOf(name) === -1) state.proposedAdded.push(name);
+      renderInsights(); saveState();
+    });
+
+    // Charts don't reflow for print on their own — resize them first.
+    window.addEventListener('beforeprint', function () { PA.charts.resizeAll(); });
+
+    restoreState();
   }
 
   function currentHealth() {
@@ -145,19 +176,89 @@
     });
   }
 
-  function onTableLoaded(table) {
+  function onTableLoaded(table, restored) {
     if (!table.headers.length || !table.rows.length) {
       setStatus('No data rows found in that file.', 'error');
       return;
     }
     state.table = table;
-    state.mapping = PA.mapping.autoDetect(table.headers);
+    // A freshly loaded file starts with auto-mapping and no manual list edits;
+    // a restored session keeps whatever was saved.
+    if (!restored) {
+      state.mapping = PA.mapping.autoDetect(table.headers);
+      state.proposedRemoved = {};
+      state.proposedAdded = [];
+    }
     PA.mapping.renderPanel(el.mappingPanel, table.headers, state.mapping, function (m) {
       state.mapping = m;
-      recompute(); render();
+      recompute(); render(); saveState();
     });
     el.mappingSection.style.display = 'block';
     recompute(); render();
+    if (!restored) saveState();
+  }
+
+  // ---- Persistence: keep the loaded data + settings across browser sessions ----
+  function saveState() {
+    if (!state.table) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        table: state.table,
+        mapping: state.mapping,
+        timelineGranularity: state.timelineGranularity,
+        includeClosed: state.includeClosed,
+        target: state.target,
+        proposedRemoved: state.proposedRemoved,
+        proposedAdded: state.proposedAdded
+      }));
+    } catch (e) {
+      // Most likely the dataset is too large for localStorage; carry on without
+      // persistence rather than breaking the app.
+      setStatus('Note: data is loaded but too large to save for next time.', 'warn');
+    }
+  }
+
+  function restoreState() {
+    var raw;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
+    if (!raw) return;
+    var saved;
+    try { saved = JSON.parse(raw); } catch (e) { return; }
+    if (!saved || !saved.table) return;
+
+    state.mapping = saved.mapping || null;
+    state.timelineGranularity = saved.timelineGranularity || 'quarter';
+    state.includeClosed = !!saved.includeClosed;
+    state.target = saved.target || '';
+    state.proposedRemoved = saved.proposedRemoved || {};
+    state.proposedAdded = saved.proposedAdded || [];
+
+    // Reflect restored settings in the controls.
+    el.granularity.value = state.timelineGranularity;
+    el.includeClosed.checked = state.includeClosed;
+    el.targetInput.value = state.target;
+
+    onTableLoaded(saved.table, true);
+  }
+
+  function resetAll() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+    state.table = null;
+    state.mapping = null;
+    state.results = null;
+    state.target = '';
+    state.includeClosed = false;
+    state.timelineGranularity = 'quarter';
+    state.proposedRemoved = {};
+    state.proposedAdded = [];
+    el.targetInput.value = '';
+    el.includeClosed.checked = false;
+    el.granularity.value = 'quarter';
+    el.fileInput.value = '';
+    el.mappingPanel.innerHTML = '';
+    el.mappingSection.style.display = 'none';
+    el.dashboard.style.display = 'none';
+    setStatus('Data cleared. Upload a Salesforce CSV to start again.', 'info');
   }
 
   function recompute() {
@@ -203,7 +304,7 @@
       { includeClosed: state.includeClosed });
   }
 
-  // Pipeline Insights card: avg open age, won-by-owner, lead source, top 5 proposed.
+  // Pipeline Insights card: avg open age, won-by-owner, lead source, top 10 proposed.
   function renderInsights() {
     if (!state.results || !state.table || !state.mapping) return;
     var ins = currentInsights();
@@ -243,20 +344,41 @@
         { kind: 'count' });
     }
 
-    // Top 5 proposed
-    var headers = ['Opportunity', 'Value', 'Close date', 'Rating', 'Next step'];
+    // Top 10 proposed (auto-ranked) with manual add/remove.
+    // Final list = auto top-10 minus removed, plus manually added opportunities.
+    var shown = ins.topProposed.filter(function (it) { return !state.proposedRemoved[it.name]; });
+    var shownNames = {};
+    shown.forEach(function (it) { shownNames[it.name] = true; });
+    state.proposedAdded.forEach(function (name) {
+      if (shownNames[name]) return;
+      var opp = ins.allOpps.filter(function (o) { return o.name === name; })[0];
+      if (opp) { shown.push(opp); shownNames[name] = true; }
+    });
+
+    var headers = ['Opportunity', 'Value', 'Close date', 'Rating', 'Next step', ''];
     var thead = '<thead><tr>' + headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead>';
-    var body = ins.topProposed.map(function (it) {
+    var body = shown.map(function (it) {
       return '<tr>' +
         '<td>' + escapeHtml(it.name) + '</td>' +
         '<td class="num">' + currency(it.amount) + '</td>' +
         '<td class="num">' + fmtDate(it.closeDate) + '</td>' +
         '<td class="num">' + Math.round(it.probability * 100) + '%</td>' +
         '<td class="next-step">' + escapeHtml(it.nextStep || '—') + '</td>' +
+        '<td class="num"><button type="button" class="remove-proposed" title="Remove" ' +
+          'data-name="' + escapeHtml(it.name) + '">✕</button></td>' +
       '</tr>';
     }).join('');
-    $('topProposedTable').innerHTML = thead + '<tbody>' +
-      (body || '<tr><td colspan="5" class="muted">No proposed opportunities.</td></tr>') + '</tbody>';
+    el.topProposedTable.innerHTML = thead + '<tbody>' +
+      (body || '<tr><td colspan="6" class="muted">No proposed opportunities.</td></tr>') + '</tbody>';
+
+    // Populate the "add" dropdown with opportunities not already shown.
+    var options = ['<option value="">Select an opportunity…</option>'];
+    ins.allOpps.forEach(function (o) {
+      if (shownNames[o.name]) return;
+      options.push('<option value="' + escapeHtml(o.name) + '">' +
+        escapeHtml(o.name) + ' — ' + currency(o.amount) + ' (' + escapeHtml(o.stage) + ')</option>');
+    });
+    el.addProposedSelect.innerHTML = options.join('');
   }
 
   // Pipeline Health card — current year only. Safe to call on its own
@@ -322,11 +444,12 @@
       $('emptyNote_' + which).style.display = 'none';
     }
 
-    // Stage chart + table
+    // Stage chart + table, with a Pipeline/Weighted total row at the bottom
     PA.charts.categoryBar('stageChart_' + which,
       year.byStage.map(kKey), year.byStage.map(kTotal), year.byStage.map(kWeighted),
       c.solid, c.soft);
-    renderTable('stageTable_' + which, ['Stage', 'Pipeline', 'Weighted', '#'], year.byStage);
+    renderTable('stageTable_' + which, ['Stage', 'Pipeline', 'Weighted', '#'], year.byStage,
+      { key: 'Total', total: year.total, weighted: year.weighted, count: year.count });
 
     // Timeline
     var tl = year.timeline[state.timelineGranularity];
@@ -338,19 +461,13 @@
     PA.charts.categoryBar('ownerChart_' + which,
       owners.map(kKey), owners.map(kTotal), owners.map(kWeighted), c.solid, c.soft);
     renderTable('ownerTable_' + which, ['Owner', 'Pipeline', 'Weighted', '#'], owners);
-
-    // Product / Region combined table (charts shown for product, region as table)
-    var products = year.byProduct.slice(0, 8);
-    PA.charts.categoryBar('productChart_' + which,
-      products.map(kKey), products.map(kTotal), products.map(kWeighted), c.solid, c.soft);
-    renderTable('regionTable_' + which, ['Region', 'Pipeline', 'Weighted', '#'], year.byRegion);
   }
 
   function kKey(o) { return o.key; }
   function kTotal(o) { return o.total; }
   function kWeighted(o) { return o.weighted; }
 
-  function renderTable(id, headers, rows) {
+  function renderTable(id, headers, rows, totals) {
     var tbl = $(id);
     if (!tbl) return;
     var thead = '<thead><tr>' + headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead>';
@@ -362,7 +479,16 @@
         '<td class="num">' + o.count + '</td>' +
       '</tr>';
     }).join('');
-    tbl.innerHTML = thead + '<tbody>' + (body || '<tr><td colspan="4" class="muted">No data</td></tr>') + '</tbody>';
+    var tfoot = '';
+    if (totals) {
+      tfoot = '<tfoot><tr class="total-row">' +
+        '<td>' + escapeHtml(totals.key) + '</td>' +
+        '<td class="num">' + currency(totals.total) + '</td>' +
+        '<td class="num">' + currency(totals.weighted) + '</td>' +
+        '<td class="num">' + totals.count + '</td>' +
+      '</tr></tfoot>';
+    }
+    tbl.innerHTML = thead + '<tbody>' + (body || '<tr><td colspan="4" class="muted">No data</td></tr>') + '</tbody>' + tfoot;
   }
 
   function escapeHtml(s) {

@@ -55,8 +55,6 @@
     dump('By stage', function (yr) { return yr.byStage; });
     dump('Timeline (quarter)', function (yr) { return yr.timeline.quarter; });
     dump('By owner', function (yr) { return yr.byOwner; });
-    dump('By product', function (yr) { return yr.byProduct; });
-    dump('By region', function (yr) { return yr.byRegion; });
 
     // Pipeline Health (current year)
     if (health) {
@@ -101,7 +99,7 @@
       insights.leadSources.forEach(function (o) { rows.push([o.key, o.count, Math.round(o.pct)]); });
       rows.push([]);
 
-      rows.push(['Top 5 proposed', 'Value', 'Close date', 'Rating %', 'Next step']);
+      rows.push(['Top 10 proposed', 'Value', 'Close date', 'Rating %', 'Next step']);
       insights.topProposed.forEach(function (it) {
         rows.push([it.name, num(it.amount), fmtDate(it.closeDate),
           Math.round(it.probability * 100), it.nextStep]);

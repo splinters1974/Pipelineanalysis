@@ -54,6 +54,7 @@
         <div class="export-actions">
           <button type="button" id="exportCsvBtn" class="btn btn-ghost">Download summary (CSV)</button>
           <button type="button" id="printBtn" class="btn">Print / Save as PDF</button>
+          <button type="button" id="resetBtn" class="btn btn-danger">Reset / new file</button>
         </div>
       </div>
 
@@ -110,8 +111,13 @@
         </div>
 
         <div class="top-proposed">
-          <h3>Top 5 proposed opportunities</h3>
+          <h3>Top 10 proposed opportunities</h3>
           <table class="data-table" id="topProposedTable"></table>
+          <div class="add-proposed">
+            <label for="addProposedSelect">Add an opportunity</label>
+            <select id="addProposedSelect"></select>
+            <button type="button" id="addProposedBtn" class="btn btn-ghost">Add</button>
+          </div>
         </div>
       </section>
 
@@ -142,12 +148,6 @@
             <div class="chart-holder"><canvas id="ownerChart_current"></canvas></div>
             <table class="data-table" id="ownerTable_current"></table>
           </div>
-
-          <div class="chart-block">
-            <h3>By product / region</h3>
-            <div class="chart-holder"><canvas id="productChart_current"></canvas></div>
-            <table class="data-table" id="regionTable_current"></table>
-          </div>
         </div>
 
         <!-- Next year column -->
@@ -175,12 +175,6 @@
             <h3>By owner</h3>
             <div class="chart-holder"><canvas id="ownerChart_next"></canvas></div>
             <table class="data-table" id="ownerTable_next"></table>
-          </div>
-
-          <div class="chart-block">
-            <h3>By product / region</h3>
-            <div class="chart-holder"><canvas id="productChart_next"></canvas></div>
-            <table class="data-table" id="regionTable_next"></table>
           </div>
         </div>
       </div>

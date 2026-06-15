@@ -419,19 +419,30 @@
       r._score = ratingN + valueN + closeN;
     });
     var topProposed = proposed.sort(function (a, b) { return b._score - a._score; })
-      .slice(0, 5).map(function (r) {
+      .slice(0, 10).map(function (r) {
         return {
           name: r.name || '(unnamed)', amount: r.amount, closeDate: r.date,
-          probability: r.probability, nextStep: r.nextStep || '', score: r._score
+          probability: r.probability, nextStep: r.nextStep || '', stage: r.stage,
+          score: r._score
         };
       });
+
+    // All current+next-year opportunities, for the "add to the list" dropdown.
+    var allOpps = recs.filter(function (r) {
+      return r.year === currentYear || r.year === nextYear;
+    }).map(function (r) {
+      return {
+        name: r.name || '(unnamed)', amount: r.amount, closeDate: r.date,
+        probability: r.probability, nextStep: r.nextStep || '', stage: r.stage
+      };
+    }).sort(function (a, b) { return a.name.localeCompare(b.name); });
 
     return {
       currentYear: currentYear,
       avgOpenAgeDays: avgOpenAgeDays, openAgeCount: ageCount, hasCreated: !!mapping.created,
       wonByOwner: wonByOwner, wonTotal: wonTotal, wonCount: wonCount,
       leadSources: leadSources, hasLeadSource: !!mapping.leadSource,
-      topProposed: topProposed
+      topProposed: topProposed, allOpps: allOpps
     };
   }
 

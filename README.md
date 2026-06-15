@@ -31,9 +31,13 @@ A full-width **Pipeline Insights** card (above the year columns) adds:
   by salesperson, with the total and deal count.
 - **Lead source mix** — a doughnut showing the % of the open pipeline coming
   from each lead source.
-- **Top 5 proposed opportunities** — the strongest Proposed-stage deals, ranked
+- **Top 10 proposed opportunities** — the strongest Proposed-stage deals, ranked
   by a blend of win probability (rating), value and nearest close date, with the
-  Next Step shown.
+  Next Step shown. You can **remove** any row (✕) and **add** any other
+  opportunity from the dropdown, so the list is yours to curate.
+
+Each year's **Value by stage** table also shows a **Total** row (pipeline and
+weighted) at the bottom.
 
 The **Awarded** stage is treated as open pipeline (not closed) but carries a high
 win weighting (90% by default), so it shows in each year's value *and* weighted
@@ -46,6 +50,15 @@ Product, Region, **Last Modified Date** (stale detection), **Created Date** (ope
 age), **Next Step** (top-5 list) and **Lead Source** (source mix). Each is
 auto-detected and adjustable in the mapping panel; features that need a column
 they can't find show a short "map this column" hint.
+
+## Saved sessions
+
+Your uploaded data, column mapping, target, toggles and manual top-10 edits are
+saved in the browser's **localStorage**, so closing the tab or browser and
+reopening `index.html` brings everything straight back — no re-upload needed.
+The data stays on your machine. Use the **Reset / new file** button to clear it
+and return to the upload screen. (If your browser blocks storage on `file://`,
+run the local-server option instead and persistence will work.)
 
 ## Exporting the view
 

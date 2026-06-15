@@ -152,10 +152,11 @@ eq('won owners sorted desc', ins.wonByOwner[0].total >= ins.wonByOwner[1].total,
 eq('lead sources present', ins.leadSources.length > 0, true);
 approx('lead source pct ~100', ins.leadSources.reduce((a, b) => a + b.pct, 0), 100, 0.5);
 
-// Top 5 proposed (7 candidates), sorted by score desc, carries next step
-eq('top proposed capped at 5', ins.topProposed.length, 5);
+// Top 10 proposed — sample has 7 Proposal-stage deals, so all 7 show (<=10)
+eq('top proposed = 7 candidates (<=10)', ins.topProposed.length, 7);
 eq('top proposed sorted by score', ins.topProposed.every((it, i, a) => i === 0 || a[i - 1].score >= it.score), true);
 eq('top proposed carries next step', typeof ins.topProposed[0].nextStep, 'string');
+eq('allOpps available for add dropdown', ins.allOpps.length > 0, true);
 
 // ---- Summary CSV export ----
 const csvOut = PA.export.buildSummaryCsv(res, health, ins, { generated: '2026-06-15' });
@@ -178,7 +179,7 @@ has('insights section', 'Pipeline Insights');
 has('avg age row', 'Avg open opportunity age (days)');
 has('won by owner section', 'Won by owner,Amount,Count');
 has('lead source section', 'Lead source,Count,%');
-has('top proposed section', 'Top 5 proposed,Value,Close date,Rating %,Next step');
+has('top proposed section', 'Top 10 proposed,Value,Close date,Rating %,Next step');
 // CRLF line endings for spreadsheet friendliness
 eq('csv uses CRLF', /\r\n/.test(csvOut), true);
 

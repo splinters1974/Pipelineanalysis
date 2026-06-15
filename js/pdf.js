@@ -77,17 +77,20 @@
     return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
   }
 
-  function yearColumn(r, y, img) {
-    var yr = r.years[y];
-    return [
-      { text: (y === r.currentYear ? 'Current year — ' : 'Following year — ') + y, style: 'h2' },
-      kpiTable(yr),
-      { text: 'Value by stage', style: 'h3' },
-      stageTable(yr),
-      { text: 'Timeline (quarter)', style: 'h3' },
-      image(img, 250)
-    ];
+  function ownerTable(yr) {
+    var rows = yr.byOwner.slice(0, 5);
+    var body = [[th('Owner'), th('Pipeline', 'right'), th('Weighted', 'right'), th('#', 'right')]];
+    rows.forEach(function (o) {
+      body.push([o.key,
+        { text: money(o.total), alignment: 'right' },
+        { text: money(o.weighted), alignment: 'right' },
+        { text: String(o.count), alignment: 'right' }]);
+    });
+    return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
   }
+
+  // Two-up row: the same item for current and following year, side by side.
+  function pair(a, b) { return { columns: [{ width: '*', stack: [a] }, { width: '*', stack: [b] }], columnGap: 18 }; }
 
   function proposedTable(list) {
     var body = [[th('Opportunity'), th('Value', 'right'), th('Close date', 'right'), th('Rating', 'right'), th('Next step')]];
@@ -136,18 +139,25 @@
     var r = p.results, h = p.health, ins = p.insights, imgs = p.images || {}, meta = p.meta || {};
     var cur = r.currentYear, nxt = r.nextYear;
 
+    var curYr = r.years[cur], nxtYr = r.years[nxt];
+
     var content = [
       { text: 'Pipeline Analysis', style: 'title' },
       { text: 'Generated ' + (meta.generated || '') + '  ·  ' + cur + ' & ' + nxt, style: 'sub' },
 
-      // Page 1 — both years side by side
-      {
-        columns: [
-          { width: '*', stack: yearColumn(r, cur, imgs.timelineCurrent) },
-          { width: '*', stack: yearColumn(r, nxt, imgs.timelineNext) }
-        ],
-        columnGap: 18
-      },
+      // Page 1 — both years side by side. Built as short two-up rows (rather
+      // than two tall columns) so every chart and table renders fully and the
+      // content paginates cleanly instead of clipping.
+      pair({ text: 'Current year — ' + cur, style: 'h2' }, { text: 'Following year — ' + nxt, style: 'h2' }),
+      pair(kpiTable(curYr), kpiTable(nxtYr)),
+      { text: 'Value by stage', style: 'h3' },
+      pair(image(imgs.stageCurrent, 245), image(imgs.stageNext, 245)),
+      pair(stageTable(curYr), stageTable(nxtYr)),
+      { text: 'Timeline (quarter)', style: 'h3' },
+      pair(image(imgs.timelineCurrent, 245), image(imgs.timelineNext, 245)),
+      { text: 'By owner', style: 'h3' },
+      pair(image(imgs.ownerCurrent, 245), image(imgs.ownerNext, 245)),
+      pair(ownerTable(curYr), ownerTable(nxtYr)),
 
       // Page 2 — insights
       { text: 'Pipeline Insights — ' + cur, style: 'h1', pageBreak: 'before' },

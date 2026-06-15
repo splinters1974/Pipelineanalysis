@@ -69,7 +69,8 @@ Two buttons sit in the dashboard controls:
   crisply; charts are embedded at a controlled size; every page has a footer with
   the date and page numbers. Layout:
   1. **Page 1** — current year (2026) and following year (2027) side by side:
-     KPIs, value-by-stage table (with totals) and the quarterly timeline.
+     KPIs, value-by-stage chart + table (with totals), quarterly timeline, and
+     by-owner chart + table.
   2. **Page 2** — average age of open opportunities, the two pie charts
      (won-by-owner, lead source) and the top-10 proposed table.
   3. **Page 3** — by segment and the stale-deal list.

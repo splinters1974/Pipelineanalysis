@@ -158,8 +158,12 @@
       insights: ins,
       proposed: computeShownProposed(ins).shown,
       images: {
+        stageCurrent: PA.charts.getImage('stageChart_current'),
+        stageNext: PA.charts.getImage('stageChart_next'),
         timelineCurrent: PA.charts.getImage('timelineChart_current'),
         timelineNext: PA.charts.getImage('timelineChart_next'),
+        ownerCurrent: PA.charts.getImage('ownerChart_current'),
+        ownerNext: PA.charts.getImage('ownerChart_next'),
         won: PA.charts.getImage('wonChart'),
         lead: PA.charts.getImage('leadChart'),
         segment: PA.charts.getImage('segmentChart')

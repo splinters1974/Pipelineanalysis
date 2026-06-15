@@ -203,6 +203,8 @@ function docHas(label, needle) {
 docHas('title', 'Pipeline Analysis');
 docHas('current year heading', 'Current year — 2026');
 docHas('following year heading', 'Following year — 2027');
+docHas('value by stage on page 1', 'Value by stage');
+docHas('by owner on page 1', 'By owner');
 docHas('insights page', 'Pipeline Insights — 2026');
 docHas('avg age', 'Avg age of open opportunities');
 docHas('top 10 heading', 'Top 10 proposed opportunities');

@@ -50,6 +50,8 @@
     el.granularity = $('granularitySelect');
     el.includeClosed = $('includeClosedToggle');
     el.targetInput = $('targetInput');
+    el.exportCsvBtn = $('exportCsvBtn');
+    el.printBtn = $('printBtn');
     el.yearLabels = { current: $('yearLabelCurrent'), next: $('yearLabelNext') };
 
     el.fileInput.addEventListener('change', function (e) {
@@ -83,6 +85,35 @@
       state.target = el.targetInput.value;
       renderHealth();
     });
+
+    el.exportCsvBtn.addEventListener('click', exportSummaryCsv);
+    el.printBtn.addEventListener('click', function () { window.print(); });
+  }
+
+  function currentHealth() {
+    return PA.analytics.healthMetrics(state.table.rows, state.mapping, state.target,
+      new Date(), { includeClosed: state.includeClosed });
+  }
+
+  function exportSummaryCsv() {
+    if (!state.results) return;
+    var csv = PA.export.buildSummaryCsv(state.results, currentHealth(), {
+      generated: new Date().toISOString().slice(0, 10)
+    });
+    downloadFile('pipeline-analysis-' + new Date().toISOString().slice(0, 10) + '.csv',
+      csv, 'text/csv;charset=utf-8');
+  }
+
+  function downloadFile(filename, text, mime) {
+    var blob = new Blob([text], { type: mime || 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
   }
 
   function setStatus(msg, kind) {
@@ -170,10 +201,7 @@
   // (e.g. when the target input changes) without re-parsing the CSV.
   function renderHealth() {
     if (!state.results || !state.table || !state.mapping) return;
-    var today = new Date();
-    var h = PA.analytics.healthMetrics(state.table.rows, state.mapping, state.target, today, {
-      includeClosed: state.includeClosed
-    });
+    var h = currentHealth();
 
     $('healthYearLabel').textContent = h.currentYear;
 

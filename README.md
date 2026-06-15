@@ -21,6 +21,18 @@ For both the current year and next year, side by side:
 probability column it is used directly; otherwise the app estimates a
 probability from each opportunity's stage (see *Weighted forecast* below).
 
+## Exporting the view
+
+Two buttons sit in the dashboard controls:
+
+- **Print / Save as PDF** — opens the browser print dialog; choose "Save as PDF"
+  to capture the whole single view (a print stylesheet hides the upload/mapping
+  chrome and stops cards splitting across pages). Good for board packs.
+- **Download summary (CSV)** — exports all the computed figures (KPIs,
+  by-stage/owner/product/region, quarterly timeline, coverage, segments and the
+  stale-deal list) as a spreadsheet-friendly CSV. Built by the pure
+  `PA.export.buildSummaryCsv` function in `js/export.js`.
+
 ## Pipeline Health
 
 A full-width **Pipeline Health** card sits above the year columns and focuses on
@@ -120,6 +132,7 @@ js/parse.js             CSV reading + Salesforce-export cleanup
 js/mapping.js           Column auto-detection + mapping UI
 js/analytics.js         Pipeline calculations (pure, testable)
 js/charts.js            Chart.js render helpers
+js/export.js            Summary CSV builder (pure, testable)
 js/app.js               Orchestration + DOM wiring
 vendor/                 PapaParse + Chart.js (vendored, offline)
 sample/sample_pipeline.csv   Synthetic Salesforce-style report

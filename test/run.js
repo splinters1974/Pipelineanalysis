@@ -31,6 +31,7 @@ if (!sandbox.Papa && sandbox.module && sandbox.module.exports) sandbox.Papa = sa
 
 load('js/parse.js');
 load('js/analytics.js');
+load('js/export.js');
 
 const PA = sandbox.window.PA;
 if (!sandbox.Papa) { console.error('FAIL: PapaParse did not load'); process.exit(1); }
@@ -118,6 +119,26 @@ const ic = health.segments.find(s => s.key === 'I&C');
 approx('I&C segment total', ic.total, 120000 + 60000 + 110000);
 eq('segmentFor maps battery -> Grid-Scale', PA.analytics.segmentFor('Grid-Scale Battery Storage'), 'Grid-Scale');
 eq('segmentFor unmapped -> Other', PA.analytics.segmentFor('Mystery Product'), 'Other');
+
+// ---- Summary CSV export ----
+const csvOut = PA.export.buildSummaryCsv(res, health, { generated: '2026-06-15' });
+function has(label, needle) {
+  const ok = csvOut.indexOf(needle) !== -1;
+  console.log((ok ? 'PASS' : 'FAIL') + ' csv contains ' + label);
+  if (!ok) failures++;
+}
+has('title', 'Pipeline Analysis summary');
+has('generated date', '2026-06-15');
+has('KPI header', 'KPIs,Total pipeline,Weighted forecast,Opportunities');
+has('2026 total', '1170500');
+has('by stage section', 'By stage — 2026');
+has('timeline section', 'Timeline (quarter) — 2027');
+has('segment section', 'By segment,Pipeline,Count');
+has('Data Centres segment', 'Data Centres,350000,2');
+has('stale list header', 'Name,Owner,Amount,Close date,Days since modified');
+has('cities segment label', 'Cities & Local Government');
+// CRLF line endings for spreadsheet friendliness
+eq('csv uses CRLF', /\r\n/.test(csvOut), true);
 
 console.log('\n' + (failures === 0 ? 'ALL TESTS PASSED' : failures + ' TEST(S) FAILED'));
 process.exit(failures === 0 ? 0 : 1);

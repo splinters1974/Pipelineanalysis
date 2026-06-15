@@ -32,6 +32,7 @@ if (!sandbox.Papa && sandbox.module && sandbox.module.exports) sandbox.Papa = sa
 load('js/parse.js');
 load('js/analytics.js');
 load('js/export.js');
+load('js/pdf.js');
 
 const PA = sandbox.window.PA;
 if (!sandbox.Papa) { console.error('FAIL: PapaParse did not load'); process.exit(1); }
@@ -182,6 +183,32 @@ has('lead source section', 'Lead source,Count,%');
 has('top proposed section', 'Top 10 proposed,Value,Close date,Rating %,Next step');
 // CRLF line endings for spreadsheet friendliness
 eq('csv uses CRLF', /\r\n/.test(csvOut), true);
+
+// ---- PDF report (pure doc-definition builder) ----
+const doc = PA.pdf.buildDocDefinition({
+  results: res, health: health, insights: ins,
+  proposed: ins.topProposed, images: {}, meta: { generated: '2026-06-15' }
+});
+eq('pdf page size A4', doc.pageSize, 'A4');
+eq('pdf footer is a function', typeof doc.footer, 'function');
+eq('pdf content is array', Array.isArray(doc.content), true);
+const pageBreaks = doc.content.filter(b => b && b.pageBreak === 'before').length;
+eq('pdf has 3 pages (2 page-breaks)', pageBreaks, 2);
+const docStr = JSON.stringify(doc.content);
+function docHas(label, needle) {
+  const ok = docStr.indexOf(needle) !== -1;
+  console.log((ok ? 'PASS' : 'FAIL') + ' pdf doc contains ' + label);
+  if (!ok) failures++;
+}
+docHas('title', 'Pipeline Analysis');
+docHas('current year heading', 'Current year — 2026');
+docHas('following year heading', 'Following year — 2027');
+docHas('insights page', 'Pipeline Insights — 2026');
+docHas('avg age', 'Avg age of open opportunities');
+docHas('top 10 heading', 'Top 10 proposed opportunities');
+docHas('segments/stale page', 'Segments & Stale deals — 2026');
+const foot = doc.footer(2, 3);
+eq('pdf footer shows page numbers', JSON.stringify(foot).indexOf('2 / 3') !== -1, true);
 
 console.log('\n' + (failures === 0 ? 'ALL TESTS PASSED' : failures + ' TEST(S) FAILED'));
 process.exit(failures === 0 ? 0 : 1);

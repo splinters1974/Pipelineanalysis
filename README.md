@@ -64,13 +64,23 @@ run the local-server option instead and persistence will work.)
 
 Two buttons sit in the dashboard controls:
 
-- **Print / Save as PDF** — opens the browser print dialog; choose "Save as PDF"
-  to capture the whole single view (a print stylesheet hides the upload/mapping
-  chrome and stops cards splitting across pages). Good for board packs.
+- **Download PDF report** — generates a clean, paginated PDF with
+  [pdfmake](https://pdfmake.github.io/) (vendored, offline). Vector tables print
+  crisply; charts are embedded at a controlled size; every page has a footer with
+  the date and page numbers. Layout:
+  1. **Page 1** — current year (2026) and following year (2027) side by side:
+     KPIs, value-by-stage table (with totals) and the quarterly timeline.
+  2. **Page 2** — average age of open opportunities, the two pie charts
+     (won-by-owner, lead source) and the top-10 proposed table.
+  3. **Page 3** — by segment and the stale-deal list.
+
+  The document is assembled by the pure, testable `PA.pdf.buildDocDefinition`
+  in `js/pdf.js`; `js/app.js` captures the chart images and triggers the
+  download. (Browser `Ctrl/Cmd+P` still works too, via a print stylesheet.)
 - **Download summary (CSV)** — exports all the computed figures (KPIs,
-  by-stage/owner/product/region, quarterly timeline, coverage, segments and the
-  stale-deal list) as a spreadsheet-friendly CSV. Built by the pure
-  `PA.export.buildSummaryCsv` function in `js/export.js`.
+  by-stage with totals, by-owner, quarterly timeline, coverage, segments,
+  stale-deal list and the insights) as a spreadsheet-friendly CSV. Built by the
+  pure `PA.export.buildSummaryCsv` function in `js/export.js`.
 
 ## Pipeline Health
 
@@ -172,6 +182,7 @@ js/mapping.js           Column auto-detection + mapping UI
 js/analytics.js         Pipeline calculations (pure, testable)
 js/charts.js            Chart.js render helpers
 js/export.js            Summary CSV builder (pure, testable)
+js/pdf.js               PDF report builder via pdfmake (pure doc-definition)
 js/app.js               Orchestration + DOM wiring
 vendor/                 PapaParse + Chart.js (vendored, offline)
 sample/sample_pipeline.csv   Synthetic Salesforce-style report

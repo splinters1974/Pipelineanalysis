@@ -55,7 +55,7 @@
     el.includeClosed = $('includeClosedToggle');
     el.targetInput = $('targetInput');
     el.exportCsvBtn = $('exportCsvBtn');
-    el.printBtn = $('printBtn');
+    el.pdfReportBtn = $('pdfReportBtn');
     el.resetBtn = $('resetBtn');
     el.topProposedTable = $('topProposedTable');
     el.addProposedSelect = $('addProposedSelect');
@@ -95,7 +95,7 @@
     });
 
     el.exportCsvBtn.addEventListener('click', exportSummaryCsv);
-    el.printBtn.addEventListener('click', function () { window.print(); });
+    el.pdfReportBtn.addEventListener('click', generatePdfReport);
     el.resetBtn.addEventListener('click', resetAll);
 
     // Manual edits to the top-10 proposed list (event delegation: rows redraw).
@@ -133,6 +133,40 @@
     });
     downloadFile('pipeline-analysis-' + new Date().toISOString().slice(0, 10) + '.csv',
       csv, 'text/csv;charset=utf-8');
+  }
+
+  // The curated top-proposed list shown in the UI = auto top-10 minus removed,
+  // plus any manually added opportunities. Shared by the table and the PDF.
+  function computeShownProposed(ins) {
+    var shown = ins.topProposed.filter(function (it) { return !state.proposedRemoved[it.name]; });
+    var names = {};
+    shown.forEach(function (it) { names[it.name] = true; });
+    state.proposedAdded.forEach(function (name) {
+      if (names[name]) return;
+      var opp = ins.allOpps.filter(function (o) { return o.name === name; })[0];
+      if (opp) { shown.push(opp); names[name] = true; }
+    });
+    return { shown: shown, names: names };
+  }
+
+  function generatePdfReport() {
+    if (!state.results) return;
+    var ins = currentInsights();
+    var docDef = PA.pdf.buildDocDefinition({
+      results: state.results,
+      health: currentHealth(),
+      insights: ins,
+      proposed: computeShownProposed(ins).shown,
+      images: {
+        timelineCurrent: PA.charts.getImage('timelineChart_current'),
+        timelineNext: PA.charts.getImage('timelineChart_next'),
+        won: PA.charts.getImage('wonChart'),
+        lead: PA.charts.getImage('leadChart'),
+        segment: PA.charts.getImage('segmentChart')
+      },
+      meta: { generated: new Date().toISOString().slice(0, 10) }
+    });
+    PA.pdf.download(docDef, 'pipeline-analysis-' + new Date().toISOString().slice(0, 10) + '.pdf');
   }
 
   function downloadFile(filename, text, mime) {
@@ -345,15 +379,8 @@
     }
 
     // Top 10 proposed (auto-ranked) with manual add/remove.
-    // Final list = auto top-10 minus removed, plus manually added opportunities.
-    var shown = ins.topProposed.filter(function (it) { return !state.proposedRemoved[it.name]; });
-    var shownNames = {};
-    shown.forEach(function (it) { shownNames[it.name] = true; });
-    state.proposedAdded.forEach(function (name) {
-      if (shownNames[name]) return;
-      var opp = ins.allOpps.filter(function (o) { return o.name === name; })[0];
-      if (opp) { shown.push(opp); shownNames[name] = true; }
-    });
+    var curated = computeShownProposed(ins);
+    var shown = curated.shown, shownNames = curated.names;
 
     var headers = ['Opportunity', 'Value', 'Close date', 'Rating', 'Next step', ''];
     var thead = '<thead><tr>' + headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead>';

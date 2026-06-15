@@ -27,6 +27,11 @@
     Object.keys(registry).forEach(function (id) { registry[id].resize(); });
   }
 
+  // PNG data URL of a rendered chart (for embedding in the PDF report).
+  function getImage(id) {
+    return registry[id] ? registry[id].toBase64Image('image/png', 1.0) : null;
+  }
+
   function currency(n) { return PA.format.currency(n); }
 
   function baseOptions(extra) {
@@ -175,6 +180,7 @@
   PA.charts = {
     destroy: destroy,
     resizeAll: resizeAll,
+    getImage: getImage,
     categoryBar: categoryBar,
     timelineChart: timelineChart,
     horizontalBar: horizontalBar,

@@ -124,6 +124,45 @@ main { padding: 24px 0 40px; }
 .btn-danger { background: #fff; color: #b91c1c; border: 1px solid #fca5a5; }
 .btn-danger:hover { background: #fef2f2; filter: none; }
 
+/* Filters card */
+.filters-card { display: flex; flex-direction: column; gap: 10px; }
+.filters-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.filters-actions { display: flex; align-items: center; gap: 12px; }
+.filters-actions .muted { flex: 1; }
+.ms { position: relative; }
+.ms-btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ms-btn:hover { border-color: var(--current); }
+.ms-pop {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 200px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+}
+.ms-opt { display: flex; align-items: center; gap: 8px; padding: 5px 6px; font-size: 13px; border-radius: 6px; cursor: pointer; }
+.ms-opt:hover { background: #f3f4f6; }
+
+/* Sales Performance card */
+.perf-card h2 { margin: 0 0 14px; font-size: 18px; }
+.perf-card .kpi-row { grid-template-columns: repeat(4, 1fr); }
+.kpi-sub { font-size: 11px; color: var(--muted); }
+@media (max-width: 900px) { .perf-card .kpi-row { grid-template-columns: 1fr 1fr; } }
+
 /* Pipeline Health card */
 .health-card { margin-bottom: 20px; }
 .health-card h2 { margin: 0 0 14px; font-size: 18px; }
@@ -311,6 +350,7 @@ main { padding: 24px 0 40px; }
   .upload-section,
   #mappingSection,
   .dashboard-controls,
+  #filtersCard,
   #coveragePanel,
   .add-proposed,
   .remove-proposed,

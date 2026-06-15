@@ -32,7 +32,9 @@
     results: null,
     timelineGranularity: 'quarter',
     includeClosed: false,
-    target: '',          // raw text from the coverage target input
+    target: '',          // current-year coverage target (raw text)
+    nextTarget: '',      // next-year coverage target (raw text)
+    filters: { owner: [], region: [], segment: [], stage: [], leadSource: [] },
     proposedRemoved: {}, // {name: true} manually removed from the top-10 list
     proposedAdded: [],   // [name] manually added to the top-10 list
     currentYear: 2026   // overridable; defaults to system year below
@@ -54,6 +56,10 @@
     el.granularity = $('granularitySelect');
     el.includeClosed = $('includeClosedToggle');
     el.targetInput = $('targetInput');
+    el.nextTargetInput = $('nextTargetInput');
+    el.filtersRow = $('filtersRow');
+    el.filtersSummary = $('filtersSummary');
+    el.clearFiltersBtn = $('clearFiltersBtn');
     el.exportCsvBtn = $('exportCsvBtn');
     el.pdfReportBtn = $('pdfReportBtn');
     el.resetBtn = $('resetBtn');
@@ -88,11 +94,18 @@
       state.includeClosed = el.includeClosed.checked;
       recompute(); render(); saveState();
     });
-    // Coverage target: re-render just the health card, no CSV re-parse.
+    // Coverage targets: re-render just the health card, no CSV re-parse.
     el.targetInput.addEventListener('input', function () {
       state.target = el.targetInput.value;
       renderHealth(); saveState();
     });
+    el.nextTargetInput.addEventListener('input', function () {
+      state.nextTarget = el.nextTargetInput.value;
+      renderHealth(); saveState();
+    });
+    el.clearFiltersBtn.addEventListener('click', clearFilters);
+    // Close any open filter popover when clicking elsewhere.
+    document.addEventListener('click', closeAllPopovers);
 
     el.exportCsvBtn.addEventListener('click', exportSummaryCsv);
     el.pdfReportBtn.addEventListener('click', generatePdfReport);
@@ -123,13 +136,20 @@
 
   function currentHealth() {
     return PA.analytics.healthMetrics(state.table.rows, state.mapping, state.target,
-      new Date(), { includeClosed: state.includeClosed });
+      new Date(), { includeClosed: state.includeClosed, filters: state.filters });
+  }
+
+  function currentPerformance() {
+    return PA.analytics.performanceMetrics(state.table.rows, state.mapping,
+      new Date(), { includeClosed: state.includeClosed, filters: state.filters });
   }
 
   function exportSummaryCsv() {
     if (!state.results) return;
     var csv = PA.export.buildSummaryCsv(state.results, currentHealth(), currentInsights(), {
-      generated: new Date().toISOString().slice(0, 10)
+      generated: new Date().toISOString().slice(0, 10),
+      performance: currentPerformance(),
+      filterSummary: filterSummaryText()
     });
     downloadFile('pipeline-analysis-' + new Date().toISOString().slice(0, 10) + '.csv',
       csv, 'text/csv;charset=utf-8');
@@ -157,6 +177,7 @@
       health: currentHealth(),
       insights: ins,
       proposed: computeShownProposed(ins).shown,
+      performance: currentPerformance(),
       images: {
         stageCurrent: PA.charts.getImage('stageChart_current'),
         stageNext: PA.charts.getImage('stageChart_next'),
@@ -168,7 +189,7 @@
         lead: PA.charts.getImage('leadChart'),
         segment: PA.charts.getImage('segmentChart')
       },
-      meta: { generated: new Date().toISOString().slice(0, 10) }
+      meta: { generated: new Date().toISOString().slice(0, 10), filterSummary: filterSummaryText() }
     });
     PA.pdf.download(docDef, 'pipeline-analysis-' + new Date().toISOString().slice(0, 10) + '.pdf');
   }
@@ -229,9 +250,10 @@
     }
     PA.mapping.renderPanel(el.mappingPanel, table.headers, state.mapping, function (m) {
       state.mapping = m;
-      recompute(); render(); saveState();
+      populateFilters(); recompute(); render(); saveState();
     });
     el.mappingSection.style.display = 'block';
+    populateFilters();
     recompute(); render();
     if (!restored) saveState();
   }
@@ -246,6 +268,8 @@
         timelineGranularity: state.timelineGranularity,
         includeClosed: state.includeClosed,
         target: state.target,
+        nextTarget: state.nextTarget,
+        filters: state.filters,
         proposedRemoved: state.proposedRemoved,
         proposedAdded: state.proposedAdded
       }));
@@ -268,6 +292,8 @@
     state.timelineGranularity = saved.timelineGranularity || 'quarter';
     state.includeClosed = !!saved.includeClosed;
     state.target = saved.target || '';
+    state.nextTarget = saved.nextTarget || '';
+    state.filters = Object.assign({ owner: [], region: [], segment: [], stage: [], leadSource: [] }, saved.filters || {});
     state.proposedRemoved = saved.proposedRemoved || {};
     state.proposedAdded = saved.proposedAdded || [];
 
@@ -275,6 +301,7 @@
     el.granularity.value = state.timelineGranularity;
     el.includeClosed.checked = state.includeClosed;
     el.targetInput.value = state.target;
+    el.nextTargetInput.value = state.nextTarget;
 
     onTableLoaded(saved.table, true);
   }
@@ -285,18 +312,124 @@
     state.mapping = null;
     state.results = null;
     state.target = '';
+    state.nextTarget = '';
     state.includeClosed = false;
     state.timelineGranularity = 'quarter';
+    state.filters = { owner: [], region: [], segment: [], stage: [], leadSource: [] };
     state.proposedRemoved = {};
     state.proposedAdded = [];
     el.targetInput.value = '';
+    el.nextTargetInput.value = '';
     el.includeClosed.checked = false;
     el.granularity.value = 'quarter';
     el.fileInput.value = '';
+    el.filtersRow.innerHTML = '';
     el.mappingPanel.innerHTML = '';
     el.mappingSection.style.display = 'none';
     el.dashboard.style.display = 'none';
     setStatus('Data cleared. Upload a Salesforce CSV to start again.', 'info');
+  }
+
+  // ---- Filters ----
+  var FILTER_DIMS = [
+    ['owner', 'Owner'], ['region', 'Region'], ['segment', 'Segment'],
+    ['stage', 'Stage'], ['leadSource', 'Lead source']
+  ];
+
+  function populateFilters() {
+    if (!state.table || !state.mapping) return;
+    if (PA.mapping.requiredMissing(state.mapping).length) { el.filtersRow.innerHTML = ''; return; }
+    var vals = PA.analytics.distinctFilterValues(state.table.rows, state.mapping, { currentYear: state.currentYear });
+    el.filtersRow.innerHTML = '';
+    FILTER_DIMS.forEach(function (d) {
+      var key = d[0];
+      // Drop any saved selections that are no longer in the data.
+      state.filters[key] = (state.filters[key] || []).filter(function (v) { return vals[key].indexOf(v) !== -1; });
+      createMultiSelect(el.filtersRow, d[1], vals[key], state.filters[key], function (selected) {
+        state.filters[key] = selected;
+        recompute(); render(); saveState();
+      });
+    });
+    updateFiltersSummary();
+  }
+
+  function createMultiSelect(container, label, values, selected, onChange) {
+    var wrap = document.createElement('div');
+    wrap.className = 'ms';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ms-btn';
+    var pop = document.createElement('div');
+    pop.className = 'ms-pop';
+    pop.style.display = 'none';
+    var chosen = selected.slice();
+
+    function refreshLabel() { btn.textContent = label + ': ' + (chosen.length ? chosen.length + ' selected' : 'All'); }
+    refreshLabel();
+
+    values.forEach(function (v) {
+      var row = document.createElement('label');
+      row.className = 'ms-opt';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = chosen.indexOf(v) !== -1;
+      cb.addEventListener('change', function () {
+        if (cb.checked) { if (chosen.indexOf(v) === -1) chosen.push(v); }
+        else { chosen = chosen.filter(function (x) { return x !== v; }); }
+        refreshLabel();
+        onChange(chosen.slice());
+      });
+      var span = document.createElement('span');
+      span.textContent = v || '(blank)';
+      row.appendChild(cb); row.appendChild(span);
+      pop.appendChild(row);
+    });
+    if (!values.length) {
+      var empty = document.createElement('div');
+      empty.className = 'muted'; empty.style.padding = '6px 8px';
+      empty.textContent = 'No values'; pop.appendChild(empty);
+    }
+
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var isOpen = pop.style.display !== 'none';
+      closeAllPopovers();
+      pop.style.display = isOpen ? 'none' : 'block';
+    });
+    pop.addEventListener('click', function (e) { e.stopPropagation(); });
+
+    wrap.appendChild(btn); wrap.appendChild(pop);
+    container.appendChild(wrap);
+  }
+
+  function closeAllPopovers() {
+    var pops = document.querySelectorAll('.ms-pop');
+    for (var i = 0; i < pops.length; i++) pops[i].style.display = 'none';
+  }
+
+  function activeFilterKeys() {
+    return FILTER_DIMS.map(function (d) { return d[0]; })
+      .filter(function (k) { return state.filters[k] && state.filters[k].length; });
+  }
+
+  function updateFiltersSummary() {
+    var active = activeFilterKeys();
+    var labels = {}; FILTER_DIMS.forEach(function (d) { labels[d[0]] = d[1]; });
+    el.filtersSummary.textContent = active.length
+      ? 'Filtering: ' + active.map(function (k) { return labels[k] + ' (' + state.filters[k].length + ')'; }).join(', ')
+      : 'No filters applied — showing all opportunities.';
+  }
+
+  function filterSummaryText() {
+    var active = activeFilterKeys();
+    if (!active.length) return '';
+    var labels = {}; FILTER_DIMS.forEach(function (d) { labels[d[0]] = d[1]; });
+    return active.map(function (k) { return labels[k] + ': ' + state.filters[k].join(', '); }).join('  ·  ');
+  }
+
+  function clearFilters() {
+    FILTER_DIMS.forEach(function (d) { state.filters[d[0]] = []; });
+    populateFilters(); recompute(); render(); saveState();
   }
 
   function recompute() {
@@ -310,7 +443,8 @@
     }
     state.results = PA.analytics.analyze(state.table.rows, state.mapping, {
       currentYear: state.currentYear,
-      includeClosed: state.includeClosed
+      includeClosed: state.includeClosed,
+      filters: state.filters
     });
 
     var r = state.results;
@@ -334,12 +468,32 @@
     renderColumn('current', r.years[r.currentYear], r.currentYear);
     renderColumn('next', r.years[r.nextYear], r.nextYear);
     renderHealth();
+    renderPerformance();
     renderInsights();
+    updateFiltersSummary();
+  }
+
+  // Sales Performance card (current year).
+  function renderPerformance() {
+    if (!state.results) return;
+    var p = currentPerformance();
+    $('perfYearLabel').textContent = p.currentYear;
+    $('perfWinRate').textContent = p.winRatePct == null ? '—' : Math.round(p.winRatePct) + '%';
+    $('perfWinSub').textContent = (p.wonCount + p.lostCount)
+      ? (p.wonCount + ' won / ' + p.lostCount + ' lost') : 'no closed deals yet';
+    $('perfWinRateValue').textContent = p.winRateValuePct == null ? '—' : Math.round(p.winRateValuePct) + '%';
+    $('perfCycle').textContent = p.avgCycleDays == null ? '—' : p.avgCycleDays + ' days';
+    $('perfCycleSub').textContent = p.avgCycleDays == null
+      ? (p.hasCreated ? 'no closed-won deals' : 'map a Created Date column')
+      : ('over ' + p.cycleCount + ' won ' + (p.cycleCount === 1 ? 'deal' : 'deals'));
+    $('perfVelocity').textContent = p.velocityPerDay == null ? '—' : currency(p.velocityPerDay) + '/day';
+    $('perfVelocitySub').textContent = p.velocityPerDay == null
+      ? 'needs win rate + sales cycle' : (currency(p.velocityPerMonth) + '/month');
   }
 
   function currentInsights() {
     return PA.analytics.insightMetrics(state.table.rows, state.mapping, new Date(),
-      { includeClosed: state.includeClosed });
+      { includeClosed: state.includeClosed, filters: state.filters });
   }
 
   // Pipeline Insights card: avg open age, won-by-owner, lead source, top 10 proposed.
@@ -412,6 +566,19 @@
     el.addProposedSelect.innerHTML = options.join('');
   }
 
+  function renderCoverage(elm, ratio, status, weighted, target, year) {
+    if (ratio == null) {
+      elm.className = 'coverage-result';
+      elm.innerHTML = '<p class="muted">Enter a ' + year + ' target to see coverage.<br>Weighted forecast: <strong>' +
+        currency(weighted) + '</strong></p>';
+    } else {
+      elm.className = 'coverage-result ' + status;
+      elm.innerHTML =
+        '<div class="coverage-ratio">' + Math.round(ratio) + '%</div>' +
+        '<div class="coverage-sub">' + compact(weighted) + ' weighted against ' + compact(target) + ' target</div>';
+    }
+  }
+
   // Pipeline Health card — current year only. Safe to call on its own
   // (e.g. when the target input changes) without re-parsing the CSV.
   function renderHealth() {
@@ -419,20 +586,17 @@
     var h = currentHealth();
 
     $('healthYearLabel').textContent = h.currentYear;
+    var nextYear = state.results.nextYear;
+    $('targetLabelCurrent').textContent = h.currentYear;
+    $('targetLabelNext').textContent = nextYear;
 
-    // Panel 1 — Coverage
-    var cov = $('coverageResult');
-    if (h.coverageRatio == null) {
-      cov.className = 'coverage-result';
-      cov.innerHTML = '<p class="muted">Enter a target to see coverage.<br>Weighted forecast so far: <strong>' +
-        currency(h.weightedForecast) + '</strong></p>';
-    } else {
-      cov.className = 'coverage-result ' + h.coverageStatus;
-      cov.innerHTML =
-        '<div class="coverage-ratio">' + Math.round(h.coverageRatio) + '%</div>' +
-        '<div class="coverage-sub">' + compact(h.weightedForecast) +
-        ' weighted against ' + compact(h.target) + ' target</div>';
-    }
+    // Panel 1 — Coverage (current year)
+    renderCoverage($('coverageResult'), h.coverageRatio, h.coverageStatus, h.weightedForecast, h.target, h.currentYear);
+
+    // Next-year coverage (weighted forecast already excludes closed unless toggled)
+    var nextWeighted = state.results.years[nextYear].weighted;
+    var covNext = PA.analytics.coverage(nextWeighted, state.nextTarget);
+    renderCoverage($('coverageResultNext'), covNext.ratio, covNext.status, nextWeighted, covNext.target, nextYear);
 
     // Panel 2 — Stale deals
     $('staleSummary').innerHTML = '<strong>' + h.stale.count + '</strong> stale ' +

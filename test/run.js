@@ -159,8 +159,51 @@ eq('top proposed sorted by score', ins.topProposed.every((it, i, a) => i === 0 |
 eq('top proposed carries next step', typeof ins.topProposed[0].nextStep, 'string');
 eq('allOpps available for add dropdown', ins.allOpps.length > 0, true);
 
+// ---- Filters ----
+const dv = PA.analytics.distinctFilterValues(table.rows, mapping, { currentYear: 2026 });
+eq('distinct owners = 4', dv.owner.length, 4);
+eq('distinct regions = 3', dv.region.length, 3);
+eq('distinct lead sources = 5', dv.leadSource.length, 5);
+eq('distinct segments = 5', dv.segment.length, 5);
+
+// applyFilters: owner = Jane Smith
+const janeRecs = PA.analytics.applyFilters(
+  PA.analytics.buildRecords(table.rows, mapping, {}).records, { owner: ['Jane Smith'] });
+eq('applyFilters keeps only Jane', janeRecs.every(r => r.owner === 'Jane Smith'), true);
+// analyze with that filter: 2026 open = Acme 120k + Initech 40k + Soylent 60k = 220k
+const resJane = PA.analytics.analyze(table.rows, mapping, { currentYear: 2026, includeClosed: false, filters: { owner: ['Jane Smith'] } });
+approx('filtered (Jane) 2026 open total', resJane.years[2026].total, 220000);
+// no-op filter equals unfiltered
+const resAll = PA.analytics.analyze(table.rows, mapping, { currentYear: 2026, includeClosed: false, filters: { owner: [] } });
+approx('empty filter == unfiltered', resAll.years[2026].total, 1170500);
+
+// ---- coverage() helper ----
+eq('coverage 80% green', PA.analytics.coverage(80, 100).status, 'green');
+eq('coverage 50% amber', PA.analytics.coverage(50, 100).status, 'amber');
+eq('coverage 49% red', PA.analytics.coverage(49, 100).status, 'red');
+eq('coverage no target = null', PA.analytics.coverage(50, '').ratio, null);
+
+// ---- Sales performance ----
+const perf = PA.analytics.performanceMetrics(table.rows, mapping, today, {});
+eq('perf won count 2026', perf.wonCount, 2);
+eq('perf lost count 2026', perf.lostCount, 1);
+eq('perf open count 2026', perf.openCount, 12);
+approx('perf win rate (count) %', perf.winRatePct, 200 / 3, 0.05);
+approx('perf win rate (value) %', perf.winRateValuePct, 445000 / 515000 * 100, 0.05);
+// avg cycle recomputed independently over 2026 closed-won deals with a created date
+const wonCycle = table.rows.filter(r => r['Close Date'].endsWith('2026') && /won/i.test(r['Stage']) && r['Created Date'])
+  .map(r => Math.floor((PA.parse.parseDate(r['Close Date'], true) - PA.parse.parseDate(r['Created Date'], true)) / 86400000));
+const expCycle = Math.round(wonCycle.reduce((a, b) => a + b, 0) / wonCycle.length);
+eq('perf avg sales cycle days', perf.avgCycleDays, expCycle);
+// velocity is internally consistent and positive
+const expVel = (perf.openCount * perf.avgDealSize * (perf.winRatePct / 100)) / perf.avgCycleDays;
+approx('perf velocity £/day', perf.velocityPerDay, expVel, 0.01);
+eq('perf velocity positive', perf.velocityPerDay > 0, true);
+
 // ---- Summary CSV export ----
-const csvOut = PA.export.buildSummaryCsv(res, health, ins, { generated: '2026-06-15' });
+const csvOut = PA.export.buildSummaryCsv(res, health, ins, {
+  generated: '2026-06-15', performance: perf, filterSummary: 'Owner: Jane Smith'
+});
 function has(label, needle) {
   const ok = csvOut.indexOf(needle) !== -1;
   console.log((ok ? 'PASS' : 'FAIL') + ' csv contains ' + label);
@@ -181,13 +224,17 @@ has('avg age row', 'Avg open opportunity age (days)');
 has('won by owner section', 'Won by owner,Amount,Count');
 has('lead source section', 'Lead source,Count,%');
 has('top proposed section', 'Top 10 proposed,Value,Close date,Rating %,Next step');
+has('filters applied row', 'Filters applied,Owner: Jane Smith');
+has('sales performance section', 'Sales performance — 2026');
+has('velocity row', 'Pipeline velocity (£/day)');
 // CRLF line endings for spreadsheet friendliness
 eq('csv uses CRLF', /\r\n/.test(csvOut), true);
 
 // ---- PDF report (pure doc-definition builder) ----
 const doc = PA.pdf.buildDocDefinition({
-  results: res, health: health, insights: ins,
-  proposed: ins.topProposed, images: {}, meta: { generated: '2026-06-15' }
+  results: res, health: health, insights: ins, proposed: ins.topProposed,
+  performance: perf, images: {},
+  meta: { generated: '2026-06-15', filterSummary: 'Owner: Jane Smith' }
 });
 eq('pdf page size A4', doc.pageSize, 'A4');
 eq('pdf footer is a function', typeof doc.footer, 'function');
@@ -205,6 +252,9 @@ docHas('current year heading', 'Current year — 2026');
 docHas('following year heading', 'Following year — 2027');
 docHas('value by stage on page 1', 'Value by stage');
 docHas('by owner on page 1', 'By owner');
+docHas('filter note', 'Filtered by — Owner: Jane Smith');
+docHas('sales performance row', 'Sales performance');
+docHas('win rate kpi', 'Win rate (count)');
 docHas('insights page', 'Pipeline Insights — 2026');
 docHas('avg age', 'Avg age of open opportunities');
 docHas('top 10 heading', 'Top 10 proposed opportunities');

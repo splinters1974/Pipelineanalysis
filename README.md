@@ -83,6 +83,28 @@ Two buttons sit in the dashboard controls:
   stale-deal list and the insights) as a spreadsheet-friendly CSV. Built by the
   pure `PA.export.buildSummaryCsv` function in `js/export.js`.
 
+## Filters
+
+A **Filters** bar at the top of the dashboard lets you slice the *entire* view —
+year dashboard, Pipeline Health, Sales Performance and Pipeline Insights all
+update together — by **owner, region, segment, stage and lead source**. Each is a
+multi-select dropdown (OR within a dimension, AND across dimensions). Active
+filters show in the summary line, persist across sessions, and are noted in the
+PDF and CSV exports. Use **Clear filters** to reset.
+
+## Sales Performance
+
+A **Sales Performance** card (current year) shows:
+
+- **Win rate** — Closed Won ÷ (Won + Lost), by deal count and by value
+- **Average sales cycle** — mean days from Created Date to close on Closed Won
+  deals (needs a Created Date column)
+- **Pipeline velocity** — `open count × avg open deal × win rate ÷ avg cycle
+  days`, in £/day (and £/month)
+
+Coverage in the Health card now covers **both years** — enter a target for the
+current and the following year to see each one's RAG-rated coverage ratio.
+
 ## Pipeline Health
 
 A full-width **Pipeline Health** card sits above the year columns and focuses on

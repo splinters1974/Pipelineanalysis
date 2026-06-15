@@ -92,6 +92,25 @@
   // Two-up row: the same item for current and following year, side by side.
   function pair(a, b) { return { columns: [{ width: '*', stack: [a] }, { width: '*', stack: [b] }], columnGap: 18 }; }
 
+  function kpiCell(label, val) {
+    return { width: '*', stack: [{ text: label, style: 'kpiLabel' }, { text: val, style: 'kpiVal' }] };
+  }
+
+  // Sales-performance KPI row for page 2.
+  function perfRow(perf) {
+    if (!perf) return null;
+    var pct = function (v) { return v == null ? '—' : Math.round(v) + '%'; };
+    return {
+      columns: [
+        kpiCell('Win rate (count)', pct(perf.winRatePct)),
+        kpiCell('Win rate (value)', pct(perf.winRateValuePct)),
+        kpiCell('Avg sales cycle', perf.avgCycleDays == null ? '—' : perf.avgCycleDays + ' days'),
+        kpiCell('Velocity', perf.velocityPerDay == null ? '—' : money(perf.velocityPerDay) + '/day')
+      ],
+      columnGap: 10, margin: [0, 0, 0, 10]
+    };
+  }
+
   function proposedTable(list) {
     var body = [[th('Opportunity'), th('Value', 'right'), th('Close date', 'right'), th('Rating', 'right'), th('Next step')]];
     if (!list.length) {
@@ -144,6 +163,7 @@
     var content = [
       { text: 'Pipeline Analysis', style: 'title' },
       { text: 'Generated ' + (meta.generated || '') + '  ·  ' + cur + ' & ' + nxt, style: 'sub' },
+      meta.filterSummary ? { text: 'Filtered by — ' + meta.filterSummary, style: 'filterNote' } : null,
 
       // Page 1 — both years side by side. Built as short two-up rows (rather
       // than two tall columns) so every chart and table renders fully and the
@@ -161,6 +181,8 @@
 
       // Page 2 — insights
       { text: 'Pipeline Insights — ' + cur, style: 'h1', pageBreak: 'before' },
+      { text: 'Sales performance', style: 'h3' },
+      perfRow(p.performance),
       {
         columns: [
           { width: 'auto', stack: [
@@ -200,7 +222,7 @@
       },
       { text: 'Stale deals — ' + h.stale.count + ' deals · ' + money(h.stale.totalValue), style: 'h3', margin: [0, 8, 0, 4] },
       staleTable(h.stale)
-    ];
+    ].filter(Boolean);
 
     return {
       pageSize: 'A4',
@@ -219,7 +241,8 @@
       defaultStyle: { fontSize: 9, color: '#1f2937' },
       styles: {
         title: { fontSize: 20, bold: true, color: '#1e3a8a', margin: [0, 0, 0, 2] },
-        sub: { fontSize: 10, color: '#6b7280', margin: [0, 0, 0, 12] },
+        sub: { fontSize: 10, color: '#6b7280', margin: [0, 0, 0, 4] },
+        filterNote: { fontSize: 9, italics: true, color: '#374151', margin: [0, 0, 0, 12] },
         h1: { fontSize: 15, bold: true, color: '#1e3a8a', margin: [0, 0, 0, 8] },
         h2: { fontSize: 13, bold: true, color: '#2563eb', margin: [0, 4, 0, 6] },
         h3: { fontSize: 11, bold: true, margin: [0, 8, 0, 4] },

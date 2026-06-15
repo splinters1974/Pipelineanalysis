@@ -32,6 +32,7 @@
     rows.push(['Generated', meta.generated || '']);
     rows.push(['Years', r.currentYear + ' & ' + r.nextYear]);
     rows.push(['Closed deals included', r.includeClosed ? 'Yes' : 'No']);
+    rows.push(['Filters applied', meta.filterSummary || 'None']);
     rows.push([]);
 
     // KPIs
@@ -104,6 +105,18 @@
         rows.push([it.name, num(it.amount), fmtDate(it.closeDate),
           Math.round(it.probability * 100), it.nextStep]);
       });
+      rows.push([]);
+    }
+
+    // Sales performance
+    var perf = meta.performance;
+    if (perf) {
+      rows.push(['Sales performance — ' + perf.currentYear]);
+      rows.push(['Win rate (count) %', perf.winRatePct == null ? 'n/a' : Math.round(perf.winRatePct)]);
+      rows.push(['Win rate (value) %', perf.winRateValuePct == null ? 'n/a' : Math.round(perf.winRateValuePct)]);
+      rows.push(['Won / Lost', perf.wonCount + ' / ' + perf.lostCount]);
+      rows.push(['Avg sales cycle (days)', perf.avgCycleDays == null ? 'n/a' : perf.avgCycleDays]);
+      rows.push(['Pipeline velocity (£/day)', perf.velocityPerDay == null ? 'n/a' : num(perf.velocityPerDay)]);
     }
 
     return rows.map(function (row) {

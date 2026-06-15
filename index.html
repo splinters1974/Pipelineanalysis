@@ -58,6 +58,15 @@
         </div>
       </div>
 
+      <!-- Filters -->
+      <div class="filters-card card" id="filtersCard">
+        <div class="filters-row" id="filtersRow"></div>
+        <div class="filters-actions">
+          <span class="muted" id="filtersSummary"></span>
+          <button type="button" id="clearFiltersBtn" class="btn btn-ghost">Clear filters</button>
+        </div>
+      </div>
+
       <!-- Pipeline Health (full-width, current year) -->
       <section class="health-card card" id="healthCard">
         <h2>Pipeline Health — <span id="healthYearLabel"></span></h2>
@@ -65,10 +74,14 @@
 
           <div class="health-panel" id="coveragePanel">
             <h3>Coverage</h3>
-            <label class="target-label">Target (£)
+            <label class="target-label"><span id="targetLabelCurrent">Current year</span> target (£)
               <input type="text" id="targetInput" inputmode="numeric" placeholder="e.g. 2,000,000" />
             </label>
             <div id="coverageResult" class="coverage-result"></div>
+            <label class="target-label" style="margin-top:12px"><span id="targetLabelNext">Next year</span> target (£)
+              <input type="text" id="nextTargetInput" inputmode="numeric" placeholder="e.g. 1,500,000" />
+            </label>
+            <div id="coverageResultNext" class="coverage-result"></div>
           </div>
 
           <div class="health-panel" id="stalePanel">
@@ -82,6 +95,17 @@
             <div class="chart-holder"><canvas id="segmentChart"></canvas></div>
           </div>
 
+        </div>
+      </section>
+
+      <!-- Sales Performance (full-width, current year) -->
+      <section class="perf-card card" id="perfCard">
+        <h2>Sales Performance — <span id="perfYearLabel"></span></h2>
+        <div class="kpi-row">
+          <div class="kpi"><span class="kpi-label">Win rate (by count)</span><span class="kpi-value" id="perfWinRate">—</span><span class="kpi-sub" id="perfWinSub"></span></div>
+          <div class="kpi"><span class="kpi-label">Win rate (by value)</span><span class="kpi-value" id="perfWinRateValue">—</span></div>
+          <div class="kpi"><span class="kpi-label">Avg sales cycle</span><span class="kpi-value" id="perfCycle">—</span><span class="kpi-sub" id="perfCycleSub"></span></div>
+          <div class="kpi"><span class="kpi-label">Pipeline velocity</span><span class="kpi-value" id="perfVelocity">—</span><span class="kpi-sub" id="perfVelocitySub"></span></div>
         </div>
       </section>
 

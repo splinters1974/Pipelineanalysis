@@ -220,10 +220,11 @@
     var includeClosed = !!opts.includeClosed;
 
     var built = buildRecords(rows, mapping, opts);
+    var records = applyFilters(built.records, opts.filters);
     var inYears = [];
     var outOfRange = 0;
 
-    built.records.forEach(function (rec) {
+    records.forEach(function (rec) {
       if (rec.year !== currentYear && rec.year !== nextYear) { outOfRange++; return; }
       if (!includeClosed && rec.closed) return;
       inYears.push(rec);
@@ -239,7 +240,7 @@
     result.dayFirst = built.dayFirst;
     result.outOfRange = outOfRange;
     result.includeClosed = includeClosed;
-    result.totalRecords = built.records.length;
+    result.totalRecords = records.length;
     return result;
   }
 
@@ -250,6 +251,61 @@
       if (p.indexOf(SEGMENT_MAP[i].match) !== -1) return SEGMENT_MAP[i].segment;
     }
     return OTHER_SEGMENT;
+  }
+
+  // The dimensions the dashboard can be filtered by. Each maps to a function
+  // returning the record's value for that dimension.
+  var FILTER_DIMS = {
+    owner: function (r) { return r.owner; },
+    region: function (r) { return r.region; },
+    segment: function (r) { return segmentFor(r.product); },
+    stage: function (r) { return r.stage; },
+    leadSource: function (r) { return r.leadSource; }
+  };
+
+  /*
+   * Keep a record when, for every dimension that has a non-empty selection, the
+   * record's value is in that selection. (OR within a dimension, AND across
+   * dimensions.) `filters` is e.g. { owner:['Jane'], region:[], ... }.
+   */
+  function applyFilters(records, filters) {
+    if (!filters) return records;
+    var active = Object.keys(FILTER_DIMS).filter(function (d) {
+      return Array.isArray(filters[d]) && filters[d].length;
+    });
+    if (!active.length) return records;
+    return records.filter(function (r) {
+      return active.every(function (d) {
+        return filters[d].indexOf(FILTER_DIMS[d](r)) !== -1;
+      });
+    });
+  }
+
+  // Distinct, sorted values per dimension across the current+next-year records,
+  // used to populate the filter controls.
+  function distinctFilterValues(rows, mapping, opts) {
+    opts = opts || {};
+    var currentYear = opts.currentYear || new Date().getFullYear();
+    var nextYear = currentYear + 1;
+    var recs = buildRecords(rows, mapping, opts).records.filter(function (r) {
+      return r.year === currentYear || r.year === nextYear;
+    });
+    var out = {};
+    Object.keys(FILTER_DIMS).forEach(function (d) {
+      var seen = {};
+      recs.forEach(function (r) { seen[FILTER_DIMS[d](r)] = true; });
+      out[d] = Object.keys(seen).sort(function (a, b) { return a.localeCompare(b); });
+    });
+    return out;
+  }
+
+  // Coverage ratio + RAG status from a weighted forecast against a £ target.
+  function coverage(weighted, target) {
+    var t = PA.parse.cleanNumber(target);
+    if (isNaN(t) || t <= 0) return { ratio: null, status: null, target: null };
+    var ratio = (weighted / t) * 100;
+    var status = ratio >= 80 ? 'green' : (ratio >= 50 ? 'amber' : 'red');
+    return { ratio: ratio, status: status, target: t };
   }
 
   /*
@@ -274,20 +330,16 @@
     var includeClosed = !!options.includeClosed;
 
     var built = buildRecords(rows, mapping, options);
-    var current = built.records.filter(function (r) { return r.year === currentYear; });
+    var records = applyFilters(built.records, options.filters);
+    var current = records.filter(function (r) { return r.year === currentYear; });
     var active = current.filter(function (r) { return includeClosed || !r.closed; });
 
     // --- Panel 1: Coverage ---
     var weightedForecast = 0;
     active.forEach(function (r) { weightedForecast += r.weighted; });
-    var target = PA.parse.cleanNumber(targetValue);
-    if (isNaN(target) || target <= 0) target = null;
-    var coverageRatio = null, coverageStatus = null;
-    if (target != null) {
-      coverageRatio = (weightedForecast / target) * 100;
-      coverageStatus = coverageRatio >= 80 ? 'green'
-                     : (coverageRatio >= 50 ? 'amber' : 'red');
-    }
+    var cov = coverage(weightedForecast, targetValue);
+    var target = cov.target;
+    var coverageRatio = cov.ratio, coverageStatus = cov.status;
 
     // --- Panel 2: Stale deals ---
     var MS_PER_DAY = 86400000;
@@ -360,7 +412,7 @@
     var includeClosed = !!options.includeClosed;
     var MS_PER_DAY = 86400000;
 
-    var recs = buildRecords(rows, mapping, options).records;
+    var recs = applyFilters(buildRecords(rows, mapping, options).records, options.filters);
 
     // --- Average age of open opportunities (created -> today) ---
     var ageSum = 0, ageCount = 0;
@@ -446,11 +498,73 @@
     };
   }
 
+  /*
+   * Sales-performance KPIs for the CURRENT year (filters applied).
+   *   performanceMetrics(rows, mapping, today[, options])
+   *
+   * - winRate     : Closed Won ÷ (Won + Lost), by count and by value.
+   * - avgCycleDays: mean (close − created) over Closed Won deals (needs a
+   *                 Created Date; null + flag otherwise).
+   * - velocity    : (open count × avg open deal × win-rate) ÷ avg cycle days,
+   *                 in £/day (and £/month); null when the cycle is unknown/0.
+   */
+  function performanceMetrics(rows, mapping, today, options) {
+    options = options || {};
+    today = today || new Date();
+    var currentYear = today.getFullYear();
+    var MS_PER_DAY = 86400000;
+
+    var recs = applyFilters(buildRecords(rows, mapping, options).records, options.filters)
+      .filter(function (r) { return r.year === currentYear; });
+
+    function isWon(r) { return String(r.stage).toLowerCase().indexOf('won') !== -1; }
+    function isLost(r) { return String(r.stage).toLowerCase().indexOf('lost') !== -1; }
+
+    var wonCount = 0, lostCount = 0, wonValue = 0, lostValue = 0;
+    var cycleSum = 0, cycleCount = 0;
+    var openCount = 0, openValue = 0;
+    recs.forEach(function (r) {
+      if (isWon(r)) {
+        wonCount++; wonValue += r.amount;
+        if (r.created) { cycleSum += Math.max(0, Math.floor((r.date.getTime() - r.created.getTime()) / MS_PER_DAY)); cycleCount++; }
+      } else if (isLost(r)) {
+        lostCount++; lostValue += r.amount;
+      }
+      if (!r.closed) { openCount++; openValue += r.amount; }
+    });
+
+    var decided = wonCount + lostCount;
+    var winRatePct = decided ? (wonCount / decided) * 100 : null;
+    var decidedValue = wonValue + lostValue;
+    var winRateValuePct = decidedValue ? (wonValue / decidedValue) * 100 : null;
+    var avgCycleDays = cycleCount ? Math.round(cycleSum / cycleCount) : null;
+    var avgDealSize = openCount ? openValue / openCount : 0;
+
+    var velocityPerDay = null;
+    if (avgCycleDays && winRatePct != null && openCount) {
+      velocityPerDay = (openCount * avgDealSize * (winRatePct / 100)) / avgCycleDays;
+    }
+
+    return {
+      currentYear: currentYear,
+      wonCount: wonCount, lostCount: lostCount,
+      winRatePct: winRatePct, winRateValuePct: winRateValuePct,
+      avgCycleDays: avgCycleDays, hasCreated: !!mapping.created, cycleCount: cycleCount,
+      openCount: openCount, avgDealSize: avgDealSize,
+      velocityPerDay: velocityPerDay,
+      velocityPerMonth: velocityPerDay == null ? null : velocityPerDay * 30
+    };
+  }
+
   PA.analytics = {
     analyze: analyze,
     buildRecords: buildRecords,
     healthMetrics: healthMetrics,
     insightMetrics: insightMetrics,
+    performanceMetrics: performanceMetrics,
+    applyFilters: applyFilters,
+    distinctFilterValues: distinctFilterValues,
+    coverage: coverage,
     segmentFor: segmentFor,
     stageWeight: stageWeight,
     DEFAULT_STAGE_WEIGHTS: DEFAULT_STAGE_WEIGHTS,

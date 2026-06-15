@@ -117,6 +117,48 @@
     });
   }
 
+  // Distinct palette for categorical pie/doughnut slices.
+  var PIE_PALETTE = ['#2563eb', '#7c3aed', '#10b981', '#f59e0b', '#ef4444',
+                     '#06b6d4', '#db2777', '#84cc16', '#6366f1', '#a855f7'];
+
+  /*
+   * Doughnut chart. opts.kind = 'currency' (default) or 'count' controls value
+   * formatting; opts.counts (optional) adds a deal count to currency tooltips.
+   * Tooltip always shows the slice's share of the total as a percentage.
+   */
+  function pieChart(canvasId, labels, values, opts) {
+    destroy(canvasId);
+    opts = opts || {};
+    var counts = opts.counts || null;
+    var fmtVal = opts.kind === 'count'
+      ? function (v) { return v + (v === 1 ? ' deal' : ' deals'); }
+      : function (v) { return currency(v); };
+    var bg = labels.map(function (_, i) { return PIE_PALETTE[i % PIE_PALETTE.length]; });
+    var sum = values.reduce(function (a, b) { return a + b; }, 0) || 1;
+    var ctx = document.getElementById(canvasId).getContext('2d');
+    registry[canvasId] = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels: labels, datasets: [{ data: values, backgroundColor: bg, borderColor: '#fff', borderWidth: 1 }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: function (c) {
+                var v = c.parsed;
+                var pct = Math.round((v / sum) * 100);
+                var extra = (counts && opts.kind !== 'count') ? ' · ' + counts[c.dataIndex] + ' deals' : '';
+                return c.label + ': ' + fmtVal(v) + ' (' + pct + '%)' + extra;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
   function colorsForYear(which) {
     return which === 'next'
       ? { solid: COLORS.next, soft: COLORS.nextSoft }
@@ -128,6 +170,7 @@
     categoryBar: categoryBar,
     timelineChart: timelineChart,
     horizontalBar: horizontalBar,
+    pieChart: pieChart,
     colorsForYear: colorsForYear,
     COLORS: COLORS
   };

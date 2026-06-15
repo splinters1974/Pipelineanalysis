@@ -84,6 +84,37 @@
         </div>
       </section>
 
+      <!-- Pipeline Insights (full-width) -->
+      <section class="insights-card card" id="insightsCard">
+        <h2>Pipeline Insights</h2>
+        <div class="insight-panels">
+
+          <div class="insight-panel" id="agePanel">
+            <h3>Avg age of open opportunities</h3>
+            <div class="big-stat" id="avgAgeStat">—</div>
+            <div class="muted" id="avgAgeSub"></div>
+          </div>
+
+          <div class="insight-panel" id="wonPanel">
+            <h3>Won revenue <span id="wonYearLabel"></span> — by owner</h3>
+            <div class="muted" id="wonTotalLabel"></div>
+            <div class="chart-holder"><canvas id="wonChart"></canvas></div>
+          </div>
+
+          <div class="insight-panel" id="leadPanel">
+            <h3>Lead source mix</h3>
+            <div class="chart-holder"><canvas id="leadChart"></canvas></div>
+            <div class="muted" id="leadNote"></div>
+          </div>
+
+        </div>
+
+        <div class="top-proposed">
+          <h3>Top 5 proposed opportunities</h3>
+          <table class="data-table" id="topProposedTable"></table>
+        </div>
+      </section>
+
       <div class="year-grid">
         <!-- Current year column -->
         <div class="year-col">

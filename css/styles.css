@@ -185,6 +185,32 @@ main { padding: 24px 0 40px; }
   .health-panels { grid-template-columns: 1fr; }
 }
 
+/* Pipeline Insights card */
+.insights-card { margin-bottom: 20px; }
+.insights-card h2 { margin: 0 0 14px; font-size: 18px; }
+.insight-panels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.insight-panel {
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  min-width: 0;
+}
+.insight-panel h3 { margin: 0 0 10px; font-size: 14px; }
+.insight-panel .chart-holder { height: 220px; }
+.big-stat { font-size: 38px; font-weight: 800; line-height: 1.1; color: var(--current); }
+.top-proposed { margin-top: 18px; }
+.top-proposed h3 { margin: 0 0 8px; font-size: 14px; }
+.data-table td.next-step { text-align: left; color: var(--muted); }
+
+@media (max-width: 900px) {
+  .insight-panels { grid-template-columns: 1fr; }
+}
+
 /* Year columns */
 .year-grid {
   display: grid;
@@ -261,7 +287,8 @@ main { padding: 24px 0 40px; }
   /* Keep cards and charts from being split across pages */
   .card, .year-col, .health-panel, .chart-block, .kpi { break-inside: avoid; page-break-inside: avoid; }
   .year-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .health-panels { grid-template-columns: 1fr; }
+  .health-panels, .insight-panels { grid-template-columns: 1fr 1fr 1fr; }
+  .insight-panel, .top-proposed { break-inside: avoid; page-break-inside: avoid; }
   /* Show the whole stale list, not a scroll window */
   .stale-list { max-height: none; overflow: visible; }
   .chart-holder { height: 200px; }

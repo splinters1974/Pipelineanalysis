@@ -21,6 +21,32 @@ For both the current year and next year, side by side:
 probability column it is used directly; otherwise the app estimates a
 probability from each opportunity's stage (see *Weighted forecast* below).
 
+## Pipeline Insights
+
+A full-width **Pipeline Insights** card (above the year columns) adds:
+
+- **Avg age of open opportunities** — mean days from Created Date to today
+  across all open (non-closed) deals.
+- **Won revenue (current year) by owner** — a doughnut of Closed Won value split
+  by salesperson, with the total and deal count.
+- **Lead source mix** — a doughnut showing the % of the open pipeline coming
+  from each lead source.
+- **Top 5 proposed opportunities** — the strongest Proposed-stage deals, ranked
+  by a blend of win probability (rating), value and nearest close date, with the
+  Next Step shown.
+
+The **Awarded** stage is treated as open pipeline (not closed) but carries a high
+win weighting (90% by default), so it shows in each year's value *and* weighted
+charts.
+
+## Column mapping (optional fields)
+
+Beyond the required Amount / Close Date / Stage, you can map: Probability, Owner,
+Product, Region, **Last Modified Date** (stale detection), **Created Date** (open
+age), **Next Step** (top-5 list) and **Lead Source** (source mix). Each is
+auto-detected and adjustable in the mapping panel; features that need a column
+they can't find show a short "map this column" hint.
+
 ## Exporting the view
 
 Two buttons sit in the dashboard controls:

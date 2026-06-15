@@ -23,7 +23,7 @@
     return d.getUTCDate() + ' ' + PA.analytics.MONTH_LABELS[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
   }
 
-  function buildSummaryCsv(results, health, meta) {
+  function buildSummaryCsv(results, health, insights, meta) {
     meta = meta || {};
     var r = results;
     var rows = [];
@@ -80,6 +80,31 @@
       health.stale.items.forEach(function (it) {
         rows.push([it.name, it.owner, num(it.amount), fmtDate(it.closeDate),
           it.daysSinceModified == null ? 'n/a' : it.daysSinceModified]);
+      });
+      rows.push([]);
+    }
+
+    // Pipeline Insights
+    if (insights) {
+      rows.push(['Pipeline Insights']);
+      rows.push(['Avg open opportunity age (days)',
+        insights.avgOpenAgeDays == null ? 'n/a' : insights.avgOpenAgeDays]);
+      rows.push(['Won revenue ' + insights.currentYear, num(insights.wonTotal),
+        insights.wonCount + ' deals']);
+      rows.push([]);
+
+      rows.push(['Won by owner', 'Amount', 'Count']);
+      insights.wonByOwner.forEach(function (o) { rows.push([o.key, num(o.total), o.count]); });
+      rows.push([]);
+
+      rows.push(['Lead source', 'Count', '%']);
+      insights.leadSources.forEach(function (o) { rows.push([o.key, o.count, Math.round(o.pct)]); });
+      rows.push([]);
+
+      rows.push(['Top 5 proposed', 'Value', 'Close date', 'Rating %', 'Next step']);
+      insights.topProposed.forEach(function (it) {
+        rows.push([it.name, num(it.amount), fmtDate(it.closeDate),
+          Math.round(it.probability * 100), it.nextStep]);
       });
     }
 

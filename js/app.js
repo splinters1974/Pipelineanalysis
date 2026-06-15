@@ -97,7 +97,7 @@
 
   function exportSummaryCsv() {
     if (!state.results) return;
-    var csv = PA.export.buildSummaryCsv(state.results, currentHealth(), {
+    var csv = PA.export.buildSummaryCsv(state.results, currentHealth(), currentInsights(), {
       generated: new Date().toISOString().slice(0, 10)
     });
     downloadFile('pipeline-analysis-' + new Date().toISOString().slice(0, 10) + '.csv',
@@ -195,6 +195,68 @@
     renderColumn('current', r.years[r.currentYear], r.currentYear);
     renderColumn('next', r.years[r.nextYear], r.nextYear);
     renderHealth();
+    renderInsights();
+  }
+
+  function currentInsights() {
+    return PA.analytics.insightMetrics(state.table.rows, state.mapping, new Date(),
+      { includeClosed: state.includeClosed });
+  }
+
+  // Pipeline Insights card: avg open age, won-by-owner, lead source, top 5 proposed.
+  function renderInsights() {
+    if (!state.results || !state.table || !state.mapping) return;
+    var ins = currentInsights();
+
+    // Avg age of open opportunities
+    if (ins.avgOpenAgeDays == null) {
+      $('avgAgeStat').textContent = '—';
+      $('avgAgeSub').textContent = ins.hasCreated
+        ? 'No open opportunities with a created date.'
+        : 'Map a Created Date column to see this.';
+    } else {
+      $('avgAgeStat').textContent = ins.avgOpenAgeDays + ' days';
+      $('avgAgeSub').textContent = 'across ' + ins.openAgeCount +
+        ' open opportunities (created → today)';
+    }
+
+    // Won revenue by owner (current year, closed won)
+    $('wonYearLabel').textContent = ins.currentYear;
+    $('wonTotalLabel').textContent = ins.wonCount
+      ? 'Total won: ' + currency(ins.wonTotal) + ' · ' + ins.wonCount +
+        (ins.wonCount === 1 ? ' deal' : ' deals')
+      : 'No closed-won deals in ' + ins.currentYear + '.';
+    PA.charts.pieChart('wonChart',
+      ins.wonByOwner.map(function (o) { return o.key; }),
+      ins.wonByOwner.map(function (o) { return o.total; }),
+      { kind: 'currency', counts: ins.wonByOwner.map(function (o) { return o.count; }) });
+
+    // Lead source mix
+    if (!ins.hasLeadSource) {
+      PA.charts.destroy('leadChart');
+      $('leadNote').textContent = 'Map a Lead Source column to see this.';
+    } else {
+      $('leadNote').textContent = '';
+      PA.charts.pieChart('leadChart',
+        ins.leadSources.map(function (o) { return o.key; }),
+        ins.leadSources.map(function (o) { return o.count; }),
+        { kind: 'count' });
+    }
+
+    // Top 5 proposed
+    var headers = ['Opportunity', 'Value', 'Close date', 'Rating', 'Next step'];
+    var thead = '<thead><tr>' + headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead>';
+    var body = ins.topProposed.map(function (it) {
+      return '<tr>' +
+        '<td>' + escapeHtml(it.name) + '</td>' +
+        '<td class="num">' + currency(it.amount) + '</td>' +
+        '<td class="num">' + fmtDate(it.closeDate) + '</td>' +
+        '<td class="num">' + Math.round(it.probability * 100) + '%</td>' +
+        '<td class="next-step">' + escapeHtml(it.nextStep || '—') + '</td>' +
+      '</tr>';
+    }).join('');
+    $('topProposedTable').innerHTML = thead + '<tbody>' +
+      (body || '<tr><td colspan="5" class="muted">No proposed opportunities.</td></tr>') + '</tbody>';
   }
 
   // Pipeline Health card — current year only. Safe to call on its own

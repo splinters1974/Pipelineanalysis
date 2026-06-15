@@ -14,6 +14,7 @@
   var DEFAULT_STAGE_WEIGHTS = [
     { match: 'closed won', weight: 1.00 },
     { match: 'closed lost', weight: 0.00 },
+    { match: 'awarded', weight: 0.90 },
     { match: 'negotiat', weight: 0.75 },
     { match: 'proposal', weight: 0.50 },
     { match: 'quote', weight: 0.50 },
@@ -117,6 +118,10 @@
       var name = mapping.name ? (r[mapping.name] || '') : '';
       var lastModified = mapping.lastModified
         ? PA.parse.parseDate(r[mapping.lastModified], dayFirst) : null;
+      var created = mapping.created
+        ? PA.parse.parseDate(r[mapping.created], dayFirst) : null;
+      var nextStep = mapping.nextStep ? (r[mapping.nextStep] || '') : '';
+      var leadSource = mapping.leadSource ? (r[mapping.leadSource] || '—') : '—';
 
       var prob = null;
       if (mapping.probability) prob = normProbability(r[mapping.probability]);
@@ -134,6 +139,9 @@
         region: region,
         name: name,
         lastModified: lastModified,
+        created: created,
+        nextStep: nextStep,
+        leadSource: leadSource,
         probability: prob,
         weighted: amount * prob,
         closed: isClosedStage(stage)
@@ -332,10 +340,106 @@
     };
   }
 
+  /*
+   * Cross-cutting "insights" for the dashboard:
+   *   insightMetrics(rows, mapping, today[, options])
+   *
+   * - avgOpenAgeDays : mean days from Created Date to today across OPEN
+   *   opportunities (any non-closed stage — Discovery/Proposed/Awarded/etc.).
+   * - wonByOwner     : current-year Closed Won revenue split by owner (+totals).
+   * - leadSources    : lead-source mix across the current+next-year open
+   *   pipeline, with a percentage per source.
+   * - topProposed    : top 5 Proposed-stage opportunities ranked by a blend of
+   *   rating (win %), value and nearest close date; carries the Next Step.
+   */
+  function insightMetrics(rows, mapping, today, options) {
+    options = options || {};
+    today = today || new Date();
+    var currentYear = today.getFullYear();
+    var nextYear = currentYear + 1;
+    var includeClosed = !!options.includeClosed;
+    var MS_PER_DAY = 86400000;
+
+    var recs = buildRecords(rows, mapping, options).records;
+
+    // --- Average age of open opportunities (created -> today) ---
+    var ageSum = 0, ageCount = 0;
+    recs.forEach(function (r) {
+      if (r.closed || !r.created) return;
+      ageSum += Math.max(0, Math.floor((today.getTime() - r.created.getTime()) / MS_PER_DAY));
+      ageCount++;
+    });
+    var avgOpenAgeDays = ageCount ? Math.round(ageSum / ageCount) : null;
+
+    // --- Current-year Closed Won revenue by owner ---
+    var wonMap = {}, wonTotal = 0, wonCount = 0;
+    recs.forEach(function (r) {
+      if (r.year !== currentYear) return;
+      if (String(r.stage).toLowerCase().indexOf('won') === -1) return;
+      if (!wonMap[r.owner]) wonMap[r.owner] = { key: r.owner, total: 0, count: 0 };
+      wonMap[r.owner].total += r.amount; wonMap[r.owner].count++;
+      wonTotal += r.amount; wonCount++;
+    });
+    var wonByOwner = Object.keys(wonMap).map(function (k) { return wonMap[k]; })
+      .sort(function (a, b) { return b.total - a.total; });
+
+    // --- Lead source mix across current+next-year open pipeline ---
+    var active = recs.filter(function (r) {
+      return (r.year === currentYear || r.year === nextYear) && (includeClosed || !r.closed);
+    });
+    var lsMap = {}, lsTotal = 0;
+    active.forEach(function (r) {
+      var src = (mapping.leadSource ? r.leadSource : '—') || '—';
+      if (!lsMap[src]) lsMap[src] = { key: src, count: 0, total: 0 };
+      lsMap[src].count++; lsMap[src].total += r.amount; lsTotal++;
+    });
+    var leadSources = Object.keys(lsMap).map(function (k) {
+      var o = lsMap[k];
+      o.pct = lsTotal ? (o.count / lsTotal) * 100 : 0;
+      return o;
+    }).sort(function (a, b) { return b.count - a.count; });
+
+    // --- Top 5 proposed opportunities (current+next year) ---
+    var proposed = recs.filter(function (r) {
+      return (r.year === currentYear || r.year === nextYear) &&
+        String(r.stage).toLowerCase().indexOf('propos') !== -1;
+    });
+    var maxAmount = 0, minClose = Infinity, maxClose = -Infinity;
+    proposed.forEach(function (r) {
+      if (r.amount > maxAmount) maxAmount = r.amount;
+      var t = r.date.getTime();
+      if (t < minClose) minClose = t;
+      if (t > maxClose) maxClose = t;
+    });
+    var closeRange = (maxClose - minClose) || 1;
+    proposed.forEach(function (r) {
+      var ratingN = r.probability;                         // already 0..1
+      var valueN = maxAmount ? r.amount / maxAmount : 0;
+      var closeN = 1 - ((r.date.getTime() - minClose) / closeRange); // sooner = higher
+      r._score = ratingN + valueN + closeN;
+    });
+    var topProposed = proposed.sort(function (a, b) { return b._score - a._score; })
+      .slice(0, 5).map(function (r) {
+        return {
+          name: r.name || '(unnamed)', amount: r.amount, closeDate: r.date,
+          probability: r.probability, nextStep: r.nextStep || '', score: r._score
+        };
+      });
+
+    return {
+      currentYear: currentYear,
+      avgOpenAgeDays: avgOpenAgeDays, openAgeCount: ageCount, hasCreated: !!mapping.created,
+      wonByOwner: wonByOwner, wonTotal: wonTotal, wonCount: wonCount,
+      leadSources: leadSources, hasLeadSource: !!mapping.leadSource,
+      topProposed: topProposed
+    };
+  }
+
   PA.analytics = {
     analyze: analyze,
     buildRecords: buildRecords,
     healthMetrics: healthMetrics,
+    insightMetrics: insightMetrics,
     segmentFor: segmentFor,
     stageWeight: stageWeight,
     DEFAULT_STAGE_WEIGHTS: DEFAULT_STAGE_WEIGHTS,

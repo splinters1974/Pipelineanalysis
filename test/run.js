@@ -53,15 +53,20 @@ function eq(label, actual, expected) {
 }
 
 // Header detection
-eq('headers found', table.headers.length, 10);
+eq('headers found', table.headers.length, 13);
 eq('rows parsed', table.rows.length, 30);
 
 const mapping = PA.analytics && {
   amount: 'Amount', closeDate: 'Close Date', stage: 'Stage',
   probability: 'Probability (%)', owner: 'Opportunity Owner',
   product: 'Product Family', region: 'Region', name: 'Opportunity Name',
-  lastModified: 'Last Modified Date'
+  lastModified: 'Last Modified Date', created: 'Created Date',
+  nextStep: 'Next Step', leadSource: 'Lead Source'
 };
+
+// Two 2026 deals (Globex, Soylent) are stage "Awarded" @ 90% (were 75%):
+// delta to weighted = 85500*.15 + 60000*.15 = 21825 -> 449875 + 21825 = 471700
+const W2026 = 471700;
 
 // Day-first detection on the DD/MM/YYYY sample
 const dayFirst = PA.parse.detectDayFirst(table.rows.map(r => r['Close Date']));
@@ -71,8 +76,13 @@ eq('day-first detected', dayFirst, true);
 const res = PA.analytics.analyze(table.rows, mapping, { currentYear: 2026, includeClosed: false });
 
 approx('2026 total pipeline (open)', res.years[2026].total, 1170500);
-approx('2026 weighted forecast', res.years[2026].weighted, 449875);
+approx('2026 weighted forecast', res.years[2026].weighted, W2026);
 eq('2026 open count', res.years[2026].count, 12);
+
+// Awarded stage is open (not closed) and carries a high stage weight
+approx('awarded stage weight high', PA.analytics.stageWeight('Awarded'), 0.90);
+eq('Awarded appears in 2026 by-stage', res.years[2026].byStage.some(s => s.key === 'Awarded'), true);
+eq('Awarded appears in 2027 by-stage', res.years[2027].byStage.some(s => s.key === 'Awarded'), true);
 
 // Include closed should add Wayne(310k)+Vehement(70k)+Duff(135k) = 515k to 2026 total
 const resClosed = PA.analytics.analyze(table.rows, mapping, { currentYear: 2026, includeClosed: true });
@@ -96,13 +106,13 @@ const today = new Date(Date.UTC(2026, 5, 14, 12, 0, 0)); // 14 Jun 2026
 const health = PA.analytics.healthMetrics(table.rows, mapping, '1,000,000', today, { includeClosed: false });
 
 eq('health current year', health.currentYear, 2026);
-approx('coverage weighted forecast', health.weightedForecast, 449875);
-approx('coverage ratio %', health.coverageRatio, 44.9875, 0.01);
+approx('coverage weighted forecast', health.weightedForecast, W2026);
+approx('coverage ratio %', health.coverageRatio, W2026 / 1e6 * 100, 0.01);
 eq('coverage status red (<50%)', health.coverageStatus, 'red');
 
 // green/amber thresholds
-eq('coverage green at 80%', PA.analytics.healthMetrics(table.rows, mapping, String(449875 / 0.8), today, {}).coverageStatus, 'green');
-eq('coverage amber at ~60%', PA.analytics.healthMetrics(table.rows, mapping, String(449875 / 0.6), today, {}).coverageStatus, 'amber');
+eq('coverage green at 80%', PA.analytics.healthMetrics(table.rows, mapping, String(W2026 / 0.8), today, {}).coverageStatus, 'green');
+eq('coverage amber at ~60%', PA.analytics.healthMetrics(table.rows, mapping, String(W2026 / 0.6), today, {}).coverageStatus, 'amber');
 
 // Stale: Acme(15/03), Stark(18/05), Nexus(07/04), Wonka(05/02) — past close in 2026
 eq('stale count', health.stale.count, 4);
@@ -120,8 +130,35 @@ approx('I&C segment total', ic.total, 120000 + 60000 + 110000);
 eq('segmentFor maps battery -> Grid-Scale', PA.analytics.segmentFor('Grid-Scale Battery Storage'), 'Grid-Scale');
 eq('segmentFor unmapped -> Other', PA.analytics.segmentFor('Mystery Product'), 'Other');
 
+// ---- Pipeline Insights ----
+const ins = PA.analytics.insightMetrics(table.rows, mapping, today, { includeClosed: false });
+
+// Average open-opportunity age — recomputed independently from the CSV
+const openDays = table.rows
+  .filter(r => String(r['Stage']).toLowerCase().indexOf('closed') === -1)
+  .map(r => PA.parse.parseDate(r['Created Date'], true))
+  .filter(Boolean)
+  .map(d => Math.max(0, Math.floor((today.getTime() - d.getTime()) / 86400000)));
+const expAvg = Math.round(openDays.reduce((a, b) => a + b, 0) / openDays.length);
+eq('avg open age days', ins.avgOpenAgeDays, expAvg);
+eq('open age count', ins.openAgeCount, openDays.length);
+
+// Won revenue 2026 by owner: Wayne(John 310k) + Duff(Jane 135k)
+approx('won total 2026', ins.wonTotal, 445000);
+eq('won count 2026', ins.wonCount, 2);
+eq('won owners sorted desc', ins.wonByOwner[0].total >= ins.wonByOwner[1].total, true);
+
+// Lead source mix percentages sum to ~100
+eq('lead sources present', ins.leadSources.length > 0, true);
+approx('lead source pct ~100', ins.leadSources.reduce((a, b) => a + b.pct, 0), 100, 0.5);
+
+// Top 5 proposed (7 candidates), sorted by score desc, carries next step
+eq('top proposed capped at 5', ins.topProposed.length, 5);
+eq('top proposed sorted by score', ins.topProposed.every((it, i, a) => i === 0 || a[i - 1].score >= it.score), true);
+eq('top proposed carries next step', typeof ins.topProposed[0].nextStep, 'string');
+
 // ---- Summary CSV export ----
-const csvOut = PA.export.buildSummaryCsv(res, health, { generated: '2026-06-15' });
+const csvOut = PA.export.buildSummaryCsv(res, health, ins, { generated: '2026-06-15' });
 function has(label, needle) {
   const ok = csvOut.indexOf(needle) !== -1;
   console.log((ok ? 'PASS' : 'FAIL') + ' csv contains ' + label);
@@ -137,6 +174,11 @@ has('segment section', 'By segment,Pipeline,Count');
 has('Data Centres segment', 'Data Centres,350000,2');
 has('stale list header', 'Name,Owner,Amount,Close date,Days since modified');
 has('cities segment label', 'Cities & Local Government');
+has('insights section', 'Pipeline Insights');
+has('avg age row', 'Avg open opportunity age (days)');
+has('won by owner section', 'Won by owner,Amount,Count');
+has('lead source section', 'Lead source,Count,%');
+has('top proposed section', 'Top 5 proposed,Value,Close date,Rating %,Next step');
 // CRLF line endings for spreadsheet friendliness
 eq('csv uses CRLF', /\r\n/.test(csvOut), true);
 

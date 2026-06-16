@@ -9,12 +9,37 @@
 
   // Brand-ish palette; current year vs next year get distinct hues.
   var COLORS = {
-    current: '#2563eb',
-    currentSoft: 'rgba(37, 99, 235, 0.55)',
+    current: '#4f46e5',
+    currentSoft: 'rgba(79, 70, 229, 0.55)',
     next: '#7c3aed',
     nextSoft: 'rgba(124, 58, 237, 0.55)',
     weighted: 'rgba(16, 185, 129, 0.85)'
   };
+
+  // Shared look-and-feel for every chart (fonts, axis colour, grid lines).
+  if (window.Chart) {
+    Chart.defaults.font.family = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = '#475569';
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
+    if (Chart.defaults.plugins.tooltip) {
+      Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.92)';
+      Chart.defaults.plugins.tooltip.padding = 10;
+      Chart.defaults.plugins.tooltip.cornerRadius = 8;
+      Chart.defaults.plugins.tooltip.boxPadding = 4;
+    }
+  }
+
+  // Translucent fill from a hex colour (for area charts).
+  function hexToRgba(hex, alpha) {
+    var h = hex.replace('#', '');
+    var n = parseInt(h, 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+  }
+
+  // Soft grid styling reused across cartesian charts.
+  var GRID = { color: 'rgba(148, 163, 184, 0.15)', drawBorder: false };
 
   function destroy(id) {
     if (registry[id]) { registry[id].destroy(); delete registry[id]; }
@@ -51,8 +76,10 @@
       scales: {
         y: {
           beginAtZero: true,
+          grid: GRID,
           ticks: { callback: function (v) { return PA.format.compact(v); } }
-        }
+        },
+        x: { grid: { display: false } }
       }
     };
     return Object.assign(o, extra || {});
@@ -67,8 +94,8 @@
       data: {
         labels: labels,
         datasets: [
-          { label: 'Pipeline', data: totals, backgroundColor: softColor, borderColor: yearColor, borderWidth: 1 },
-          { label: 'Weighted', data: weighted, backgroundColor: COLORS.weighted, borderColor: COLORS.weighted, borderWidth: 1 }
+          { label: 'Pipeline', data: totals, backgroundColor: softColor, borderColor: yearColor, borderWidth: 1, borderRadius: 6, maxBarThickness: 38 },
+          { label: 'Weighted', data: weighted, backgroundColor: COLORS.weighted, borderColor: COLORS.weighted, borderWidth: 1, borderRadius: 6, maxBarThickness: 38 }
         ]
       },
       options: baseOptions()
@@ -84,10 +111,12 @@
       data: {
         labels: labels,
         datasets: [
-          { label: 'Pipeline', data: totals, borderColor: yearColor,
-            backgroundColor: 'rgba(37,99,235,0.10)', fill: true, tension: 0.25, pointRadius: 3 },
-          { label: 'Weighted', data: weighted, borderColor: COLORS.weighted,
-            backgroundColor: 'rgba(16,185,129,0.08)', fill: true, tension: 0.25, pointRadius: 3 }
+          { label: 'Pipeline', data: totals, borderColor: yearColor, borderWidth: 2,
+            backgroundColor: hexToRgba(yearColor, 0.10), fill: true, tension: 0.35,
+            pointRadius: 3, pointBackgroundColor: yearColor, pointBorderColor: '#fff', pointBorderWidth: 1.5 },
+          { label: 'Weighted', data: weighted, borderColor: '#10b981', borderWidth: 2,
+            backgroundColor: 'rgba(16,185,129,0.08)', fill: true, tension: 0.35,
+            pointRadius: 3, pointBackgroundColor: '#10b981', pointBorderColor: '#fff', pointBorderWidth: 1.5 }
         ]
       },
       options: baseOptions()
@@ -104,7 +133,7 @@
         labels: labels,
         datasets: [{
           label: 'Pipeline', data: totals,
-          backgroundColor: soft, borderColor: color, borderWidth: 1
+          backgroundColor: soft, borderColor: color, borderWidth: 1, borderRadius: 5, maxBarThickness: 26
         }]
       },
       options: {
@@ -123,15 +152,16 @@
           }
         },
         scales: {
-          x: { beginAtZero: true, ticks: { callback: function (v) { return PA.format.compact(v); } } }
+          x: { beginAtZero: true, grid: GRID, ticks: { callback: function (v) { return PA.format.compact(v); } } },
+          y: { grid: { display: false } }
         }
       }
     });
   }
 
   // Distinct palette for categorical pie/doughnut slices.
-  var PIE_PALETTE = ['#2563eb', '#7c3aed', '#10b981', '#f59e0b', '#ef4444',
-                     '#06b6d4', '#db2777', '#84cc16', '#6366f1', '#a855f7'];
+  var PIE_PALETTE = ['#4f46e5', '#7c3aed', '#10b981', '#f59e0b', '#ef4444',
+                     '#06b6d4', '#db2777', '#84cc16', '#6366f1', '#f97316'];
 
   /*
    * Doughnut chart. opts.kind = 'currency' (default) or 'count' controls value
@@ -150,12 +180,13 @@
     var ctx = document.getElementById(canvasId).getContext('2d');
     registry[canvasId] = new Chart(ctx, {
       type: 'doughnut',
-      data: { labels: labels, datasets: [{ data: values, backgroundColor: bg, borderColor: '#fff', borderWidth: 1 }] },
+      data: { labels: labels, datasets: [{ data: values, backgroundColor: bg, borderColor: '#fff', borderWidth: 2, hoverOffset: 6 }] },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        cutout: '58%',
         plugins: {
-          legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+          legend: { position: 'right', labels: { boxWidth: 8, usePointStyle: true, pointStyle: 'circle', font: { size: 11 } } },
           tooltip: {
             callbacks: {
               label: function (c) {

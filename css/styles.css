@@ -417,6 +417,19 @@ main { padding: 28px 0 48px; }
   -webkit-text-fill-color: transparent;
   font-variant-numeric: tabular-nums;
 }
+.awarded-list { margin-top: 22px; }
+.awarded-list h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+/* Owner is the 3rd column but holds text, so keep it left-aligned */
+#awardedTable th:nth-child(3),
+#awardedTable td:nth-child(3) { text-align: left; }
+
 .top-proposed { margin-top: 22px; }
 .top-proposed h3 {
   margin: 0 0 10px;

@@ -111,6 +111,23 @@
     };
   }
 
+  function awardedTable(list, total) {
+    var body = [[th('Opportunity'), th('Value', 'right'), th('Owner')]];
+    if (!list.length) {
+      body.push([{ text: 'No awarded opportunities.', colSpan: 3, style: 'muted' }, {}, {}]);
+    } else {
+      list.forEach(function (a) {
+        body.push([a.name, { text: money(a.amount), alignment: 'right' }, a.owner]);
+      });
+      body.push([
+        { text: 'Total awarded', bold: true },
+        { text: money(total), alignment: 'right', bold: true },
+        { text: list.length + (list.length === 1 ? ' deal' : ' deals'), bold: true }
+      ]);
+    }
+    return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
+  }
+
   function proposedTable(list) {
     var body = [[th('Opportunity'), th('Value', 'right'), th('Close date', 'right'), th('Rating', 'right'), th('Next step')]];
     if (!list.length) {
@@ -207,6 +224,8 @@
         ],
         columnGap: 18
       },
+      { text: 'Awarded opportunities — ' + cur + ' & ' + nxt, style: 'h3' },
+      awardedTable(ins.awarded || [], ins.awardedTotal || 0),
       { text: 'Top 10 proposed opportunities', style: 'h3' },
       proposedTable(p.proposed || []),
 

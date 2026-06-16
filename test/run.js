@@ -159,6 +159,14 @@ eq('top proposed sorted by score', ins.topProposed.every((it, i, a) => i === 0 |
 eq('top proposed carries next step', typeof ins.topProposed[0].nextStep, 'string');
 eq('allOpps available for add dropdown', ins.allOpps.length > 0, true);
 
+// Awarded opportunities (current+next year): Globex 85.5k, Soylent 60k (2026),
+// Umbrella 180k, Tyrell 160k (2027) = 4 deals, 485.5k, sorted by value desc.
+eq('awarded count', ins.awarded.length, 4);
+approx('awarded total', ins.awardedTotal, 485500);
+eq('awarded sorted by value desc', ins.awarded.every((a, i, arr) => i === 0 || arr[i - 1].amount >= a.amount), true);
+eq('awarded carries owner', ins.awarded[0].owner === 'Sara Lee', true); // Umbrella 180k is top
+eq('awarded carries name + value', ins.awarded[0].name === 'Umbrella Renewal' && ins.awarded[0].amount === 180000, true);
+
 // ---- Filters ----
 const dv = PA.analytics.distinctFilterValues(table.rows, mapping, { currentYear: 2026 });
 eq('distinct owners = 4', dv.owner.length, 4);
@@ -222,6 +230,8 @@ has('cities segment label', 'Cities & Local Government');
 has('insights section', 'Pipeline Insights');
 has('avg age row', 'Avg open opportunity age (days)');
 has('won by owner section', 'Won by owner,Amount,Count');
+has('awarded section', 'Awarded opportunities,Value,Owner');
+has('awarded total row', 'Total awarded,485500,4');
 has('lead source section', 'Lead source,Count,%');
 has('top proposed section', 'Top 10 proposed,Value,Close date,Rating %,Next step');
 has('filters applied row', 'Filters applied,Owner: Jane Smith');
@@ -256,6 +266,8 @@ docHas('filter note', 'Filtered by — Owner: Jane Smith');
 docHas('sales performance row', 'Sales performance');
 docHas('win rate kpi', 'Win rate (count)');
 docHas('insights page', 'Pipeline Insights — 2026');
+docHas('awarded section', 'Awarded opportunities — 2026 & 2027');
+docHas('awarded total', 'Total awarded');
 docHas('avg age', 'Avg age of open opportunities');
 docHas('top 10 heading', 'Top 10 proposed opportunities');
 docHas('segments/stale page', 'Segments & Stale deals — 2026');

@@ -435,6 +435,16 @@
     var wonByOwner = Object.keys(wonMap).map(function (k) { return wonMap[k]; })
       .sort(function (a, b) { return b.total - a.total; });
 
+    // --- Awarded opportunities (current+next year, open) — bid won, not yet
+    //     booked. Listed line by line with a running total. ---
+    var awarded = recs.filter(function (r) {
+      return (r.year === currentYear || r.year === nextYear) &&
+        String(r.stage).toLowerCase().indexOf('award') !== -1;
+    }).map(function (r) {
+      return { name: r.name || '(unnamed)', amount: r.amount, owner: r.owner, year: r.year };
+    }).sort(function (a, b) { return b.amount - a.amount; });
+    var awardedTotal = awarded.reduce(function (s, r) { return s + r.amount; }, 0);
+
     // --- Lead source mix across current+next-year open pipeline ---
     var active = recs.filter(function (r) {
       return (r.year === currentYear || r.year === nextYear) && (includeClosed || !r.closed);
@@ -493,6 +503,7 @@
       currentYear: currentYear,
       avgOpenAgeDays: avgOpenAgeDays, openAgeCount: ageCount, hasCreated: !!mapping.created,
       wonByOwner: wonByOwner, wonTotal: wonTotal, wonCount: wonCount,
+      awarded: awarded, awardedTotal: awardedTotal,
       leadSources: leadSources, hasLeadSource: !!mapping.leadSource,
       topProposed: topProposed, allOpps: allOpps
     };

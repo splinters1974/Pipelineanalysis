@@ -536,6 +536,27 @@
         { kind: 'count' });
     }
 
+    // Awarded opportunities (current+next year) — name, value, owner + total.
+    $('awardedYearLabel').textContent = ins.currentYear + ' & ' + (ins.currentYear + 1);
+    var awHead = '<thead><tr><th>Opportunity</th><th>Value</th><th>Owner</th></tr></thead>';
+    var awBody = ins.awarded.map(function (a) {
+      return '<tr>' +
+        '<td>' + escapeHtml(a.name) + '</td>' +
+        '<td class="num">' + currency(a.amount) + '</td>' +
+        '<td>' + escapeHtml(a.owner) + '</td>' +
+      '</tr>';
+    }).join('');
+    var awFoot = ins.awarded.length
+      ? '<tfoot><tr class="total-row">' +
+          '<td>Total awarded</td>' +
+          '<td class="num">' + currency(ins.awardedTotal) + '</td>' +
+          '<td>' + ins.awarded.length + (ins.awarded.length === 1 ? ' deal' : ' deals') + '</td>' +
+        '</tr></tfoot>'
+      : '';
+    $('awardedTable').innerHTML = awHead + '<tbody>' +
+      (awBody || '<tr><td colspan="3" class="muted">No awarded opportunities.</td></tr>') +
+      '</tbody>' + awFoot;
+
     // Top 10 proposed (auto-ranked) with manual add/remove.
     var curated = computeShownProposed(ins);
     var shown = curated.shown, shownNames = curated.names;

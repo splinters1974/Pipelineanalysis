@@ -178,7 +178,8 @@
     var curYr = r.years[cur], nxtYr = r.years[nxt];
 
     var content = [
-      { text: 'Pipeline Analysis', style: 'title' },
+      { text: meta.person ? 'Pipeline Analysis — ' + meta.person : 'Pipeline Analysis', style: 'title' },
+      meta.person ? { text: 'Salesperson report', style: 'personTag' } : null,
       { text: 'Generated ' + (meta.generated || '') + '  ·  ' + cur + ' & ' + nxt, style: 'sub' },
       meta.filterSummary ? { text: 'Filtered by — ' + meta.filterSummary, style: 'filterNote' } : null,
 
@@ -260,6 +261,7 @@
       defaultStyle: { fontSize: 9, color: '#1f2937' },
       styles: {
         title: { fontSize: 20, bold: true, color: '#1e3a8a', margin: [0, 0, 0, 2] },
+        personTag: { fontSize: 11, bold: true, color: '#6d28d9', margin: [0, 0, 0, 4] },
         sub: { fontSize: 10, color: '#6b7280', margin: [0, 0, 0, 4] },
         filterNote: { fontSize: 9, italics: true, color: '#374151', margin: [0, 0, 0, 12] },
         h1: { fontSize: 15, bold: true, color: '#1e3a8a', margin: [0, 0, 0, 8] },

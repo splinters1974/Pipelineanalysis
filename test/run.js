@@ -210,7 +210,8 @@ eq('perf velocity positive', perf.velocityPerDay > 0, true);
 
 // ---- Summary CSV export ----
 const csvOut = PA.export.buildSummaryCsv(res, health, ins, {
-  generated: '2026-06-15', performance: perf, filterSummary: 'Owner: Jane Smith'
+  generated: '2026-06-15', performance: perf,
+  filterSummary: 'Salesperson: Jane Smith', person: 'Jane Smith'
 });
 function has(label, needle) {
   const ok = csvOut.indexOf(needle) !== -1;
@@ -234,7 +235,9 @@ has('awarded section', 'Awarded opportunities,Value,Owner');
 has('awarded total row', 'Total awarded,485500,4');
 has('lead source section', 'Lead source,Count,%');
 has('top proposed section', 'Top 10 proposed,Value,Close date,Rating %,Next step');
-has('filters applied row', 'Filters applied,Owner: Jane Smith');
+has('filters applied row', 'Filters applied,Salesperson: Jane Smith');
+has('salesperson title', 'Pipeline Analysis summary — Jane Smith');
+has('salesperson row', 'Salesperson,Jane Smith');
 has('sales performance section', 'Sales performance — 2026');
 has('velocity row', 'Pipeline velocity (£/day)');
 // CRLF line endings for spreadsheet friendliness
@@ -244,7 +247,7 @@ eq('csv uses CRLF', /\r\n/.test(csvOut), true);
 const doc = PA.pdf.buildDocDefinition({
   results: res, health: health, insights: ins, proposed: ins.topProposed,
   performance: perf, images: {},
-  meta: { generated: '2026-06-15', filterSummary: 'Owner: Jane Smith' }
+  meta: { generated: '2026-06-15', filterSummary: 'Salesperson: Jane Smith', person: 'Jane Smith' }
 });
 eq('pdf page size A4', doc.pageSize, 'A4');
 eq('pdf footer is a function', typeof doc.footer, 'function');
@@ -262,7 +265,9 @@ docHas('current year heading', 'Current year — 2026');
 docHas('following year heading', 'Following year — 2027');
 docHas('value by stage on page 1', 'Value by stage');
 docHas('by owner on page 1', 'By owner');
-docHas('filter note', 'Filtered by — Owner: Jane Smith');
+docHas('filter note', 'Filtered by — Salesperson: Jane Smith');
+docHas('person title', 'Pipeline Analysis — Jane Smith');
+docHas('person tag', 'Salesperson report');
 docHas('sales performance row', 'Sales performance');
 docHas('win rate kpi', 'Win rate (count)');
 docHas('insights page', 'Pipeline Insights — 2026');

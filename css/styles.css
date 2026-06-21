@@ -231,6 +231,22 @@ main { padding: 28px 0 48px; }
   border-radius: 8px;
   background: #fff;
 }
+.salesperson-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #eef2ff, #f3ecfe);
+  border: 1px solid #d6dbf5;
+}
+.salesperson-control select {
+  margin-left: 2px;
+  font-weight: 600;
+  color: var(--current);
+  background: #fff;
+  border: 1px solid #d6dbf5;
+}
 .checkbox { display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; }
 .checkbox input { width: 16px; height: 16px; accent-color: var(--current); }
 .export-actions { margin-left: auto; display: flex; gap: 10px; }

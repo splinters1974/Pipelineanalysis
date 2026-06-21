@@ -54,6 +54,7 @@
     el.dashboard = $('dashboard');
     el.status = $('statusBar');
     el.granularity = $('granularitySelect');
+    el.salespersonSelect = $('salespersonSelect');
     el.includeClosed = $('includeClosedToggle');
     el.targetInput = $('targetInput');
     el.nextTargetInput = $('nextTargetInput');
@@ -94,6 +95,7 @@
       state.includeClosed = el.includeClosed.checked;
       recompute(); render(); saveState();
     });
+    el.salespersonSelect.addEventListener('change', onSalespersonChange);
     // Coverage targets: re-render just the health card, no CSV re-parse.
     el.targetInput.addEventListener('input', function () {
       state.target = el.targetInput.value;
@@ -144,14 +146,21 @@
       new Date(), { includeClosed: state.includeClosed, filters: state.filters });
   }
 
+  // Slug for filenames, e.g. "Jane Smith" -> "-jane-smith" (empty for everyone).
+  function personSlug() {
+    var p = selectedPerson();
+    return p ? '-' + p.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '';
+  }
+
   function exportSummaryCsv() {
     if (!state.results) return;
     var csv = PA.export.buildSummaryCsv(state.results, currentHealth(), currentInsights(), {
       generated: new Date().toISOString().slice(0, 10),
       performance: currentPerformance(),
-      filterSummary: filterSummaryText()
+      filterSummary: filterSummaryText(),
+      person: selectedPerson()
     });
-    downloadFile('pipeline-analysis-' + new Date().toISOString().slice(0, 10) + '.csv',
+    downloadFile('pipeline-analysis' + personSlug() + '-' + new Date().toISOString().slice(0, 10) + '.csv',
       csv, 'text/csv;charset=utf-8');
   }
 
@@ -189,9 +198,13 @@
         lead: PA.charts.getImage('leadChart'),
         segment: PA.charts.getImage('segmentChart')
       },
-      meta: { generated: new Date().toISOString().slice(0, 10), filterSummary: filterSummaryText() }
+      meta: {
+        generated: new Date().toISOString().slice(0, 10),
+        filterSummary: filterSummaryText(),
+        person: selectedPerson()
+      }
     });
-    PA.pdf.download(docDef, 'pipeline-analysis-' + new Date().toISOString().slice(0, 10) + '.pdf');
+    PA.pdf.download(docDef, 'pipeline-analysis' + personSlug() + '-' + new Date().toISOString().slice(0, 10) + '.pdf');
   }
 
   function downloadFile(filename, text, mime) {
@@ -324,6 +337,7 @@
     el.granularity.value = 'quarter';
     el.fileInput.value = '';
     el.filtersRow.innerHTML = '';
+    el.salespersonSelect.innerHTML = '<option value="">All salespeople</option>';
     el.mappingPanel.innerHTML = '';
     el.mappingSection.style.display = 'none';
     el.dashboard.style.display = 'none';
@@ -331,19 +345,37 @@
   }
 
   // ---- Filters ----
+  // All filterable dimensions (used for summaries/clear). Owner is driven by the
+  // dedicated single-select "Salesperson" control; the rest render as the
+  // multi-select pills in the filters row.
   var FILTER_DIMS = [
-    ['owner', 'Owner'], ['region', 'Region'], ['segment', 'Segment'],
+    ['owner', 'Salesperson'], ['region', 'Region'], ['segment', 'Segment'],
     ['stage', 'Stage'], ['leadSource', 'Lead source']
   ];
+  var MULTI_DIMS = FILTER_DIMS.filter(function (d) { return d[0] !== 'owner'; });
 
   function populateFilters() {
     if (!state.table || !state.mapping) return;
-    if (PA.mapping.requiredMissing(state.mapping).length) { el.filtersRow.innerHTML = ''; return; }
+    if (PA.mapping.requiredMissing(state.mapping).length) {
+      el.filtersRow.innerHTML = '';
+      el.salespersonSelect.innerHTML = '<option value="">All salespeople</option>';
+      return;
+    }
     var vals = PA.analytics.distinctFilterValues(state.table.rows, state.mapping, { currentYear: state.currentYear });
+
+    // Salesperson dropdown (single person) — drives state.filters.owner.
+    state.filters.owner = (state.filters.owner || []).filter(function (v) { return vals.owner.indexOf(v) !== -1; });
+    var selectedPerson = state.filters.owner.length === 1 ? state.filters.owner[0] : '';
+    el.salespersonSelect.innerHTML = '<option value="">All salespeople</option>' +
+      vals.owner.map(function (o) {
+        return '<option value="' + escapeHtml(o) + '"' + (o === selectedPerson ? ' selected' : '') + '>' +
+          escapeHtml(o) + '</option>';
+      }).join('');
+
+    // The remaining dimensions as multi-select pills.
     el.filtersRow.innerHTML = '';
-    FILTER_DIMS.forEach(function (d) {
+    MULTI_DIMS.forEach(function (d) {
       var key = d[0];
-      // Drop any saved selections that are no longer in the data.
       state.filters[key] = (state.filters[key] || []).filter(function (v) { return vals[key].indexOf(v) !== -1; });
       createMultiSelect(el.filtersRow, d[1], vals[key], state.filters[key], function (selected) {
         state.filters[key] = selected;
@@ -351,6 +383,17 @@
       });
     });
     updateFiltersSummary();
+  }
+
+  function onSalespersonChange() {
+    var val = el.salespersonSelect.value;
+    state.filters.owner = val ? [val] : [];
+    recompute(); render(); saveState();
+  }
+
+  // The currently selected single salesperson, or null when viewing everyone.
+  function selectedPerson() {
+    return state.filters.owner && state.filters.owner.length === 1 ? state.filters.owner[0] : null;
   }
 
   function createMultiSelect(container, label, values, selected, onChange) {
@@ -429,6 +472,7 @@
 
   function clearFilters() {
     FILTER_DIMS.forEach(function (d) { state.filters[d[0]] = []; });
+    el.salespersonSelect.value = '';
     populateFilters(); recompute(); render(); saveState();
   }
 

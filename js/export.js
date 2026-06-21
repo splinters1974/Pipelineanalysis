@@ -28,7 +28,8 @@
     var r = results;
     var rows = [];
 
-    rows.push(['Pipeline Analysis summary']);
+    rows.push(['Pipeline Analysis summary' + (meta.person ? ' — ' + meta.person : '')]);
+    if (meta.person) rows.push(['Salesperson', meta.person]);
     rows.push(['Generated', meta.generated || '']);
     rows.push(['Years', r.currentYear + ' & ' + r.nextYear]);
     rows.push(['Closed deals included', r.includeClosed ? 'Yes' : 'No']);

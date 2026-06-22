@@ -191,7 +191,7 @@ approx('lead source pct ~100', ins.leadSources.reduce((a, b) => a + b.pct, 0), 1
 
 // Top 10 proposed — sample has 7 Proposal-stage deals, so all 7 show (<=10)
 eq('top proposed = 7 candidates (<=10)', ins.topProposed.length, 7);
-eq('top proposed sorted by close date desc', ins.topProposed.every((it, i, a) => i === 0 || a[i - 1].closeDate.getTime() >= it.closeDate.getTime()), true);
+eq('top proposed sorted by close date asc', ins.topProposed.every((it, i, a) => i === 0 || a[i - 1].closeDate.getTime() <= it.closeDate.getTime()), true);
 eq('top proposed carries next step', typeof ins.topProposed[0].nextStep, 'string');
 eq('allOpps available for add dropdown', ins.allOpps.length > 0, true);
 

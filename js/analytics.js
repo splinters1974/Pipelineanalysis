@@ -492,12 +492,12 @@
     }).sort(function (a, b) { return b.count - a.count; });
 
     // --- Top 10 proposed opportunities (current+next year), ranked by close
-    //     date, most recent (latest) first. ---
+    //     date, soonest to close first. ---
     var proposed = recs.filter(function (r) {
       return (r.year === currentYear || r.year === nextYear) &&
         String(r.stage).toLowerCase().indexOf('propos') !== -1;
     });
-    var topProposed = proposed.sort(function (a, b) { return b.date.getTime() - a.date.getTime(); })
+    var topProposed = proposed.sort(function (a, b) { return a.date.getTime() - b.date.getTime(); })
       .slice(0, 10).map(function (r) {
         return {
           name: r.name || '(unnamed)', amount: r.amount, closeDate: r.date,

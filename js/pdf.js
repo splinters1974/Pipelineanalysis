@@ -176,6 +176,14 @@
     return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
   }
 
+  function technologyTable(techs) {
+    var body = [[th('Technology'), th('Pipeline', 'right'), th('Count', 'right')]];
+    (techs || []).slice(0, 10).forEach(function (t) {
+      body.push([t.key, { text: money(t.total), alignment: 'right' }, { text: String(t.count), alignment: 'right' }]);
+    });
+    return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
+  }
+
   function buildDocDefinition(p) {
     var r = p.results, h = p.health, ins = p.insights, imgs = p.images || {}, meta = p.meta || {};
     var cur = r.currentYear, nxt = r.nextYear;
@@ -237,7 +245,7 @@
       { text: 'Top 10 proposed opportunities', style: 'h3' },
       proposedTable(p.proposed || []),
 
-      // Page 3 — segment + stale
+      // Page 3 — segment + technology + stale
       { text: 'Segments & Stale deals — ' + cur, style: 'h1', pageBreak: 'before' },
       { text: 'By segment', style: 'h3' },
       {
@@ -247,6 +255,14 @@
         ],
         columnGap: 18
       },
+      h.hasTechnology ? { text: 'By technology', style: 'h3', margin: [0, 8, 0, 4] } : null,
+      h.hasTechnology ? {
+        columns: [
+          { width: '*', stack: [image(imgs.technology, 250)] },
+          { width: '*', stack: [technologyTable(h.technologies)] }
+        ],
+        columnGap: 18
+      } : null,
       { text: 'Stale deals — ' + h.stale.count + ' deals', style: 'h3', margin: [0, 8, 0, 4] },
       { text: 'Open deals not amended in more than 6 months · ' + money(h.stale.totalValue) +
         ' total · ' + money(h.stale.weightedValue) + ' weighted', style: 'muted' }

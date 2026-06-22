@@ -158,6 +158,15 @@ approx('I&C segment total', ic.total, 120000 + 60000 + 110000);
 eq('segmentFor maps battery -> Grid-Scale', PA.analytics.segmentFor('Grid-Scale Battery Storage'), 'Grid-Scale');
 eq('segmentFor unmapped -> Other', PA.analytics.segmentFor('Mystery Product'), 'Other');
 
+// By technology: raw Opportunity Solutions values, sorted by value desc
+eq('has technology flag', health.hasTechnology, true);
+const techTotal = health.technologies.reduce((s, x) => s + x.total, 0);
+approx('technology totals sum to 2026 open pipeline', techTotal, 1170500);
+eq('technology sorted by value desc', health.technologies.every((t, i, a) => i === 0 || a[i - 1].total >= t.total), true);
+// Data Centre Cooling solution = Umbrella New Logo 200k + Hooli 150k (both 2026 open)
+const dcc = health.technologies.find(t => t.key === 'Data Centre Cooling');
+approx('Data Centre Cooling technology total', dcc.total, 200000 + 150000);
+
 // ---- Pipeline Insights ----
 const ins = PA.analytics.insightMetrics(table.rows, mapping, today, { includeClosed: false });
 
@@ -336,6 +345,7 @@ has('2026 total', '1170500');
 has('by stage section', 'By stage — 2026');
 has('timeline section', 'Timeline (quarter) — 2027');
 has('segment section', 'By segment,Pipeline,Count');
+has('technology section', 'By technology,Pipeline,Count');
 has('Data Centres segment', 'Data Centres,350000,2');
 has('stale section header', 'Stale deals (not amended in more than 6 months),Count,Total,Weighted');
 has('cities segment label', 'Cities & Local Government');

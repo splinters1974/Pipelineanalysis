@@ -75,6 +75,12 @@
       health.segments.forEach(function (s) { rows.push([s.key, num(s.total), s.count]); });
       rows.push([]);
 
+      if (health.hasTechnology) {
+        rows.push(['By technology', 'Pipeline', 'Count']);
+        health.technologies.forEach(function (t) { rows.push([t.key, num(t.total), t.count]); });
+        rows.push([]);
+      }
+
       rows.push(['Stale deals (not amended in more than 6 months)', 'Count', 'Total', 'Weighted']);
       rows.push(['', health.stale.count, num(health.stale.totalValue), num(health.stale.weightedValue)]);
       rows.push([]);

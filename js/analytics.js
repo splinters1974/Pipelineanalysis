@@ -387,6 +387,17 @@
     });
     if (segMap[OTHER_SEGMENT]) segments.push(segMap[OTHER_SEGMENT]);
 
+    // --- Panel 4: By technology (the raw Opportunity Solutions value) ---
+    var techMap = {};
+    active.forEach(function (r) {
+      var tech = (mapping.product ? r.product : '—') || '—';
+      if (!techMap[tech]) techMap[tech] = { key: tech, total: 0, count: 0 };
+      techMap[tech].total += r.amount;
+      techMap[tech].count += 1;
+    });
+    var technologies = Object.keys(techMap).map(function (k) { return techMap[k]; })
+      .sort(function (a, b) { return b.total - a.total; });
+
     return {
       currentYear: currentYear,
       target: target,
@@ -398,6 +409,8 @@
         thresholdMonths: STALE_THRESHOLD_MONTHS
       },
       segments: segments,
+      technologies: technologies,
+      hasTechnology: !!mapping.product,
       hasLastModified: !!mapping.lastModified
     };
   }

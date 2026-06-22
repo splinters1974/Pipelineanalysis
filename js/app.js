@@ -203,7 +203,8 @@
         ownerNext: PA.charts.getImage('ownerChart_next'),
         won: PA.charts.getImage('wonChart'),
         lead: PA.charts.getImage('leadChart'),
-        segment: PA.charts.getImage('segmentChart')
+        segment: PA.charts.getImage('segmentChart'),
+        technology: PA.charts.getImage('techChart')
       },
       meta: {
         generated: new Date().toISOString().slice(0, 10),
@@ -712,6 +713,21 @@
       h.segments.map(function (s) { return s.total; }),
       h.segments.map(function (s) { return s.count; }),
       PA.charts.COLORS.current, PA.charts.COLORS.currentSoft);
+
+    // Panel 4 — By technology (raw Opportunity Solutions values, top 10)
+    if (!h.hasTechnology) {
+      PA.charts.destroy('techChart');
+      $('techNote').textContent = 'Map an Opportunity Solutions column to see this.';
+    } else {
+      var techs = h.technologies.slice(0, 10);
+      $('techNote').textContent = h.technologies.length > 10
+        ? 'Showing top 10 of ' + h.technologies.length + ' solutions.' : '';
+      PA.charts.horizontalBar('techChart',
+        techs.map(function (t) { return t.key; }),
+        techs.map(function (t) { return t.total; }),
+        techs.map(function (t) { return t.count; }),
+        PA.charts.COLORS.next, PA.charts.COLORS.nextSoft);
+    }
   }
 
   function fmtDate(d) {

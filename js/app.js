@@ -146,6 +146,11 @@
       new Date(), { includeClosed: state.includeClosed, filters: state.filters });
   }
 
+  function currentForecast() {
+    return PA.analytics.forecastMetrics(state.table.rows, state.mapping,
+      new Date(), { filters: state.filters });
+  }
+
   // Slug for filenames, e.g. "Jane Smith" -> "-jane-smith" (empty for everyone).
   function personSlug() {
     var p = selectedPerson();
@@ -157,6 +162,7 @@
     var csv = PA.export.buildSummaryCsv(state.results, currentHealth(), currentInsights(), {
       generated: new Date().toISOString().slice(0, 10),
       performance: currentPerformance(),
+      forecast: currentForecast(),
       filterSummary: filterSummaryText(),
       person: selectedPerson()
     });
@@ -187,6 +193,7 @@
       insights: ins,
       proposed: computeShownProposed(ins).shown,
       performance: currentPerformance(),
+      forecast: currentForecast(),
       images: {
         stageCurrent: PA.charts.getImage('stageChart_current'),
         stageNext: PA.charts.getImage('stageChart_next'),
@@ -513,8 +520,54 @@
     renderColumn('next', r.years[r.nextYear], r.nextYear);
     renderHealth();
     renderPerformance();
+    renderForecast();
     renderInsights();
     updateFiltersSummary();
+  }
+
+  // Forecast Outlook card — anchored to the report month.
+  function renderForecast() {
+    if (!state.results) return;
+    var f = currentForecast();
+    $('fcMonthLabel').textContent = f.monthLabel;
+
+    $('fcOrdersMonth').textContent = f.month.count + (f.month.count === 1 ? ' order' : ' orders');
+    $('fcOrdersMonthSub').textContent = f.monthLabel + ' · ' + currency(f.month.total) + ' pipeline';
+
+    $('fc90').textContent = currency(f.next90.total);
+    $('fc90Sub').textContent = f.next90Label + ' · ' + currency(f.next90.weighted) + ' weighted · ' +
+      f.next90.count + (f.next90.count === 1 ? ' deal' : ' deals');
+
+    $('fc365').textContent = currency(f.next365.total);
+    $('fc365Sub').textContent = f.next365Label + ' · ' + currency(f.next365.weighted) + ' weighted · ' +
+      f.next365.count + (f.next365.count === 1 ? ' deal' : ' deals');
+
+    $('fcStrategic').textContent = currency(f.strategic.total);
+    $('fcStrategicSub').textContent = f.strategic.count
+      ? f.strategic.count + (f.strategic.count === 1 ? ' opportunity' : ' opportunities')
+      : 'none in pipeline';
+
+    // Line-by-line strategic list (only when there are any).
+    var block = $('fcStrategicBlock');
+    if (f.strategic.count) {
+      block.style.display = '';
+      var head = '<thead><tr><th>Opportunity</th><th>Value</th><th>Owner</th><th>Stage</th></tr></thead>';
+      var body = f.strategic.items.map(function (it) {
+        return '<tr>' +
+          '<td>' + escapeHtml(it.name) + '</td>' +
+          '<td class="num">' + currency(it.amount) + '</td>' +
+          '<td>' + escapeHtml(it.owner) + '</td>' +
+          '<td>' + escapeHtml(it.stage) + '</td>' +
+        '</tr>';
+      }).join('');
+      var foot = '<tfoot><tr class="total-row"><td>Total strategic</td><td class="num">' +
+        currency(f.strategic.total) + '</td><td colspan="2">' + f.strategic.count +
+        (f.strategic.count === 1 ? ' opportunity' : ' opportunities') + '</td></tr></tfoot>';
+      $('fcStrategicTable').innerHTML = head + '<tbody>' + body + '</tbody>' + foot;
+    } else {
+      block.style.display = 'none';
+      $('fcStrategicTable').innerHTML = '';
+    }
   }
 
   // Sales Performance card (current year).

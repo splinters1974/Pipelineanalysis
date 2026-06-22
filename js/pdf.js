@@ -128,6 +128,34 @@
     return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
   }
 
+  // Forecast-outlook KPI row for page 2.
+  function forecastRow(f) {
+    if (!f) return null;
+    return {
+      columns: [
+        kpiCell('Orders this month', f.month.count + ' · ' + money(f.month.total)),
+        kpiCell('Next 90 days', money(f.next90.total)),
+        kpiCell('365-day pipeline', money(f.next365.total)),
+        kpiCell('Strategic (£10m+)', money(f.strategic.total) + ' · ' + f.strategic.count)
+      ],
+      columnGap: 10, margin: [0, 0, 0, 10]
+    };
+  }
+
+  function strategicTable(f) {
+    if (!f || !f.strategic.count) return null;
+    var body = [[th('Strategic opportunity'), th('Value', 'right'), th('Owner'), th('Stage')]];
+    f.strategic.items.forEach(function (it) {
+      body.push([it.name, { text: money(it.amount), alignment: 'right' }, it.owner, it.stage]);
+    });
+    body.push([
+      { text: 'Total strategic', bold: true },
+      { text: money(f.strategic.total), alignment: 'right', bold: true },
+      { text: String(f.strategic.count), colSpan: 2, bold: true }, {}
+    ]);
+    return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
+  }
+
   function proposedTable(list) {
     var body = [[th('Opportunity'), th('Value', 'right'), th('Close date', 'right'), th('Rating', 'right'), th('Next step')]];
     if (!list.length) {
@@ -201,6 +229,9 @@
       { text: 'Pipeline Insights — ' + cur, style: 'h1', pageBreak: 'before' },
       { text: 'Sales performance', style: 'h3' },
       perfRow(p.performance),
+      { text: 'Forecast outlook' + (p.forecast ? ' — ' + p.forecast.monthLabel : ''), style: 'h3' },
+      forecastRow(p.forecast),
+      strategicTable(p.forecast),
       {
         columns: [
           { width: 'auto', stack: [

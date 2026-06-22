@@ -115,6 +115,21 @@
         </div>
       </section>
 
+      <!-- Forecast Outlook (full-width, anchored to the report month) -->
+      <section class="forecast-card card" id="forecastCard">
+        <h2>Forecast Outlook — <span id="fcMonthLabel"></span></h2>
+        <div class="kpi-row">
+          <div class="kpi"><span class="kpi-label">Orders expected this month</span><span class="kpi-value" id="fcOrdersMonth">—</span><span class="kpi-sub" id="fcOrdersMonthSub"></span></div>
+          <div class="kpi"><span class="kpi-label">Likely closes — next 90 days</span><span class="kpi-value" id="fc90">—</span><span class="kpi-sub" id="fc90Sub"></span></div>
+          <div class="kpi"><span class="kpi-label">365-day pipeline</span><span class="kpi-value" id="fc365">—</span><span class="kpi-sub" id="fc365Sub"></span></div>
+          <div class="kpi"><span class="kpi-label">Strategic opps (£10m+)</span><span class="kpi-value" id="fcStrategic">—</span><span class="kpi-sub" id="fcStrategicSub"></span></div>
+        </div>
+        <div class="awarded-list" id="fcStrategicBlock" style="display:none">
+          <h3>Strategic / early-stage opportunities (£10m+)</h3>
+          <table class="data-table" id="fcStrategicTable"></table>
+        </div>
+      </section>
+
       <!-- Pipeline Insights (full-width) -->
       <section class="insights-card card" id="insightsCard">
         <h2>Pipeline Insights</h2>

@@ -66,6 +66,9 @@
   var MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+  // Opportunities at or above this value are "strategic / early-stage".
+  var STRATEGIC_THRESHOLD = 10000000; // £10m
+
   function stageWeight(stage, table) {
     var s = String(stage || '').toLowerCase();
     var rules = table || DEFAULT_STAGE_WEIGHTS;
@@ -567,17 +570,75 @@
     };
   }
 
+  /*
+   * Forward-looking forecast outlook, anchored to the calendar month that
+   * `today` falls in (so it's stable whether the report runs on the 1st or the
+   * 30th). Open opportunities only — closed deals are already decided.
+   * Filters (e.g. the selected salesperson) are applied.
+   *
+   *   - month   : open opps closing within the current calendar month
+   *   - next90  : current month + next 2 months ("next 90 days")
+   *   - next365 : current month + next 11 months ("365-day pipeline")
+   *   - strategic: open opps at or above the strategic threshold (default £10m)
+   */
+  function forecastMetrics(rows, mapping, today, options) {
+    options = options || {};
+    today = today || new Date();
+    var threshold = options.strategicThreshold != null ? options.strategicThreshold : STRATEGIC_THRESHOLD;
+    var recs = applyFilters(buildRecords(rows, mapping, options).records, options.filters);
+
+    var ty = today.getFullYear(), tm = today.getMonth();
+    var curStart = Date.UTC(ty, tm, 1);          // start of this month
+    var nextMonthStart = Date.UTC(ty, tm + 1, 1); // start of next month
+    var end90 = Date.UTC(ty, tm + 3, 1);          // start of month+3 (covers 3 months)
+    var end365 = Date.UTC(ty, tm + 12, 1);        // start of month+12 (covers 12 months)
+
+    function bucket() { return { count: 0, total: 0, weighted: 0 }; }
+    function add(b, r) { b.count++; b.total += r.amount; b.weighted += r.weighted; }
+    var month = bucket(), next90 = bucket(), next365 = bucket();
+
+    recs.forEach(function (r) {
+      if (r.closed) return;            // only open, forecastable pipeline
+      var t = r.date.getTime();
+      if (t < curStart) return;
+      if (t < nextMonthStart) add(month, r);
+      if (t < end90) add(next90, r);
+      if (t < end365) add(next365, r);
+    });
+
+    var items = recs.filter(function (r) { return !r.closed && r.amount >= threshold; })
+      .map(function (r) {
+        return { name: r.name || '(unnamed)', amount: r.amount, owner: r.owner, stage: r.stage, closeDate: r.date };
+      })
+      .sort(function (a, b) { return b.amount - a.amount; });
+    var strategicTotal = items.reduce(function (s, r) { return s + r.amount; }, 0);
+
+    function monthLabel(y, m) {
+      var yy = y + Math.floor(m / 12), mm = ((m % 12) + 12) % 12;
+      return MONTH_LABELS[mm] + ' ' + yy;
+    }
+
+    return {
+      month: month, monthLabel: monthLabel(ty, tm),
+      next90: next90, next90Label: monthLabel(ty, tm) + ' – ' + monthLabel(ty, tm + 2),
+      next365: next365, next365Label: monthLabel(ty, tm) + ' – ' + monthLabel(ty, tm + 11),
+      strategic: { threshold: threshold, count: items.length, total: strategicTotal, items: items }
+    };
+  }
+
   PA.analytics = {
     analyze: analyze,
     buildRecords: buildRecords,
     healthMetrics: healthMetrics,
     insightMetrics: insightMetrics,
     performanceMetrics: performanceMetrics,
+    forecastMetrics: forecastMetrics,
     applyFilters: applyFilters,
     distinctFilterValues: distinctFilterValues,
     coverage: coverage,
     segmentFor: segmentFor,
     stageWeight: stageWeight,
+    STRATEGIC_THRESHOLD: STRATEGIC_THRESHOLD,
     DEFAULT_STAGE_WEIGHTS: DEFAULT_STAGE_WEIGHTS,
     SEGMENT_MAP: SEGMENT_MAP,
     STALE_THRESHOLD_DAYS: STALE_THRESHOLD_DAYS,

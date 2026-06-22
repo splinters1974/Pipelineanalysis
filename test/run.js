@@ -208,9 +208,53 @@ const expVel = (perf.openCount * perf.avgDealSize * (perf.winRatePct / 100)) / p
 approx('perf velocity £/day', perf.velocityPerDay, expVel, 0.01);
 eq('perf velocity positive', perf.velocityPerDay > 0, true);
 
+// ---- Forecast outlook (anchored to today's month: Jun 2026) ----
+const fc = PA.analytics.forecastMetrics(table.rows, mapping, today, {});
+eq('forecast month label', fc.monthLabel, 'Jun 2026');
+eq('forecast 90 label', fc.next90Label, 'Jun 2026 – Aug 2026');
+eq('forecast 365 label', fc.next365Label, 'Jun 2026 – May 2027');
+// Recompute the windows independently from the parsed rows (open opps only).
+const curStart = Date.UTC(2026, 5, 1), nextM = Date.UTC(2026, 6, 1),
+      e90 = Date.UTC(2026, 8, 1), e365 = Date.UTC(2027, 5, 1);
+let mC = 0, mT = 0, n90C = 0, n90T = 0, n365C = 0, n365T = 0;
+table.rows.forEach(r => {
+  if (/closed/i.test(r['Stage'])) return;
+  const d = PA.parse.parseDate(r['Close Date'], true); if (!d) return;
+  const amt = PA.parse.cleanNumber(r['Amount']); if (isNaN(amt)) return;
+  const t = d.getTime();
+  if (t < curStart) return;
+  if (t < nextM) { mC++; mT += amt; }
+  if (t < e90) { n90C++; n90T += amt; }
+  if (t < e365) { n365C++; n365T += amt; }
+});
+eq('forecast month count', fc.month.count, mC);
+approx('forecast month total', fc.month.total, mT);
+eq('forecast 90 count', fc.next90.count, n90C);
+approx('forecast 90 total', fc.next90.total, n90T);
+eq('forecast 365 count', fc.next365.count, n365C);
+approx('forecast 365 total', fc.next365.total, n365T);
+eq('forecast windows nested (month<=90<=365)', fc.month.total <= fc.next90.total && fc.next90.total <= fc.next365.total, true);
+// No £10m+ deals in the sample
+eq('strategic none at £10m', fc.strategic.count, 0);
+approx('strategic total £0', fc.strategic.total, 0);
+// Lower the threshold to exercise detection + sorting
+const fcLow = PA.analytics.forecastMetrics(table.rows, mapping, today, { strategicThreshold: 150000 });
+let sC = 0, sT = 0;
+table.rows.forEach(r => {
+  if (/closed/i.test(r['Stage'])) return;
+  const amt = PA.parse.cleanNumber(r['Amount']);
+  if (isNaN(amt) || amt < 150000) return; sC++; sT += amt;
+});
+eq('strategic count @150k', fcLow.strategic.count, sC);
+approx('strategic total @150k', fcLow.strategic.total, sT);
+eq('strategic sorted desc', fcLow.strategic.items.every((it, i, a) => i === 0 || a[i - 1].amount >= it.amount), true);
+// Filters flow through (Jane is a subset of everyone)
+const fcJane = PA.analytics.forecastMetrics(table.rows, mapping, today, { filters: { owner: ['Jane Smith'] } });
+eq('forecast respects salesperson filter', fcJane.next365.total <= fc.next365.total, true);
+
 // ---- Summary CSV export ----
 const csvOut = PA.export.buildSummaryCsv(res, health, ins, {
-  generated: '2026-06-15', performance: perf,
+  generated: '2026-06-15', performance: perf, forecast: fcLow,
   filterSummary: 'Salesperson: Jane Smith', person: 'Jane Smith'
 });
 function has(label, needle) {
@@ -240,13 +284,17 @@ has('salesperson title', 'Pipeline Analysis summary — Jane Smith');
 has('salesperson row', 'Salesperson,Jane Smith');
 has('sales performance section', 'Sales performance — 2026');
 has('velocity row', 'Pipeline velocity (£/day)');
+has('forecast section', 'Forecast outlook — Jun 2026');
+has('forecast month row', 'Orders this month (Jun 2026)');
+has('forecast strategic section', 'Strategic opportunities (£10m+)');
+has('forecast strategic total', 'Total strategic,');
 // CRLF line endings for spreadsheet friendliness
 eq('csv uses CRLF', /\r\n/.test(csvOut), true);
 
 // ---- PDF report (pure doc-definition builder) ----
 const doc = PA.pdf.buildDocDefinition({
   results: res, health: health, insights: ins, proposed: ins.topProposed,
-  performance: perf, images: {},
+  performance: perf, forecast: fcLow, images: {},
   meta: { generated: '2026-06-15', filterSummary: 'Salesperson: Jane Smith', person: 'Jane Smith' }
 });
 eq('pdf page size A4', doc.pageSize, 'A4');
@@ -268,6 +316,9 @@ docHas('by owner on page 1', 'By owner');
 docHas('filter note', 'Filtered by — Salesperson: Jane Smith');
 docHas('person title', 'Pipeline Analysis — Jane Smith');
 docHas('person tag', 'Salesperson report');
+docHas('forecast heading', 'Forecast outlook — Jun 2026');
+docHas('forecast kpi', 'Orders this month');
+docHas('forecast strategic table', 'Total strategic');
 docHas('sales performance row', 'Sales performance');
 docHas('win rate kpi', 'Win rate (count)');
 docHas('insights page', 'Pipeline Insights — 2026');

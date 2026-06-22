@@ -180,6 +180,7 @@ main { padding: 28px 0 48px; }
 #mappingSection h2::before,
 #healthCard h2::before,
 #perfCard h2::before,
+#forecastCard h2::before,
 #insightsCard h2::before {
   content: "";
   display: inline-flex;
@@ -195,6 +196,7 @@ main { padding: 28px 0 48px; }
 #mappingSection h2::before { content: "🧭"; background: #eef2ff; }
 #healthCard h2::before { content: "📊"; background: #e7f8f1; }
 #perfCard h2::before { content: "🚀"; background: #eef2ff; }
+#forecastCard h2::before { content: "📅"; background: #e6f6fe; }
 #insightsCard h2::before { content: "💡"; background: #f4ecfe; }
 
 /* Mapping grid */
@@ -314,6 +316,7 @@ main { padding: 28px 0 48px; }
 /* Shared section accent bar + lead heading */
 .health-card::before,
 .perf-card::before,
+.forecast-card::before,
 .insights-card::before {
   content: "";
   position: absolute;
@@ -323,7 +326,15 @@ main { padding: 28px 0 48px; }
 }
 .health-card::before { background: linear-gradient(180deg, #34d399, #059669); }
 .perf-card::before { background: linear-gradient(180deg, #6366f1, #4f46e5); }
+.forecast-card::before { background: linear-gradient(180deg, #38bdf8, #0284c7); }
 .insights-card::before { background: linear-gradient(180deg, #a78bfa, #7c3aed); }
+
+/* Forecast Outlook card */
+.forecast-card h2 { margin: 0 0 14px; }
+.forecast-card .kpi-row { grid-template-columns: repeat(4, 1fr); margin-bottom: 0; }
+#fcStrategicTable th:nth-child(3), #fcStrategicTable td:nth-child(3),
+#fcStrategicTable th:nth-child(4), #fcStrategicTable td:nth-child(4) { text-align: left; }
+@media (max-width: 900px) { .forecast-card .kpi-row { grid-template-columns: 1fr 1fr; } }
 
 /* Sales Performance card */
 .perf-card .kpi-row { grid-template-columns: repeat(4, 1fr); margin-bottom: 0; }

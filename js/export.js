@@ -123,6 +123,21 @@
       rows.push(['Won / Lost', perf.wonCount + ' / ' + perf.lostCount]);
       rows.push(['Avg sales cycle (days)', perf.avgCycleDays == null ? 'n/a' : perf.avgCycleDays]);
       rows.push(['Pipeline velocity (£/day)', perf.velocityPerDay == null ? 'n/a' : num(perf.velocityPerDay)]);
+      rows.push([]);
+    }
+
+    // Forecast outlook (anchored to the report month)
+    var fc = meta.forecast;
+    if (fc) {
+      rows.push(['Forecast outlook — ' + fc.monthLabel, 'Count', 'Pipeline', 'Weighted']);
+      rows.push(['Orders this month (' + fc.monthLabel + ')', fc.month.count, num(fc.month.total), num(fc.month.weighted)]);
+      rows.push(['Next 90 days (' + fc.next90Label + ')', fc.next90.count, num(fc.next90.total), num(fc.next90.weighted)]);
+      rows.push(['365-day pipeline (' + fc.next365Label + ')', fc.next365.count, num(fc.next365.total), num(fc.next365.weighted)]);
+      rows.push([]);
+      rows.push(['Strategic opportunities (£10m+)', 'Value', 'Owner', 'Stage']);
+      fc.strategic.items.forEach(function (it) { rows.push([it.name, num(it.amount), it.owner, it.stage]); });
+      rows.push(['Total strategic', num(fc.strategic.total), fc.strategic.count]);
+      rows.push([]);
     }
 
     return rows.map(function (row) {

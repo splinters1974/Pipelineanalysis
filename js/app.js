@@ -181,6 +181,9 @@
       var opp = ins.allOpps.filter(function (o) { return o.name === name; })[0];
       if (opp) { shown.push(opp); names[name] = true; }
     });
+    // Keep the displayed list (incl. manually added) in close-date order,
+    // most recent first.
+    shown.sort(function (a, b) { return b.closeDate.getTime() - a.closeDate.getTime(); });
     return { shown: shown, names: names };
   }
 

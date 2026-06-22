@@ -491,31 +491,17 @@
       return o;
     }).sort(function (a, b) { return b.count - a.count; });
 
-    // --- Top 5 proposed opportunities (current+next year) ---
+    // --- Top 10 proposed opportunities (current+next year), ranked by close
+    //     date, most recent (latest) first. ---
     var proposed = recs.filter(function (r) {
       return (r.year === currentYear || r.year === nextYear) &&
         String(r.stage).toLowerCase().indexOf('propos') !== -1;
     });
-    var maxAmount = 0, minClose = Infinity, maxClose = -Infinity;
-    proposed.forEach(function (r) {
-      if (r.amount > maxAmount) maxAmount = r.amount;
-      var t = r.date.getTime();
-      if (t < minClose) minClose = t;
-      if (t > maxClose) maxClose = t;
-    });
-    var closeRange = (maxClose - minClose) || 1;
-    proposed.forEach(function (r) {
-      var ratingN = r.probability;                         // already 0..1
-      var valueN = maxAmount ? r.amount / maxAmount : 0;
-      var closeN = 1 - ((r.date.getTime() - minClose) / closeRange); // sooner = higher
-      r._score = ratingN + valueN + closeN;
-    });
-    var topProposed = proposed.sort(function (a, b) { return b._score - a._score; })
+    var topProposed = proposed.sort(function (a, b) { return b.date.getTime() - a.date.getTime(); })
       .slice(0, 10).map(function (r) {
         return {
           name: r.name || '(unnamed)', amount: r.amount, closeDate: r.date,
-          probability: r.probability, nextStep: r.nextStep || '', stage: r.stage,
-          score: r._score
+          probability: r.probability, nextStep: r.nextStep || '', stage: r.stage
         };
       });
 

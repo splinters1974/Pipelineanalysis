@@ -68,9 +68,9 @@
 
   // Opportunities at or above this value are "strategic / early-stage".
   var STRATEGIC_THRESHOLD = 10000000; // £10m
-  // Strategic deals only count when at one of these stages (lower-case match):
-  // excludes anything earlier (discovery, qualification, prospecting, etc.).
-  var STRATEGIC_STAGES = ['propos', 'award'];
+  // Strategic deals (£10m+) only count when at a Discovery or Proposal stage
+  // (lower-case match) — excludes awarded/qualification/prospecting/etc.
+  var STRATEGIC_STAGES = ['discover', 'propos'];
   // Forecast-pipeline windows (month / 90-day / 365-day) only count deals at
   // these stages (lower-case match): discovery, proposed, awarded.
   var FORECAST_STAGES = ['discover', 'propos', 'award'];

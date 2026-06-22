@@ -276,7 +276,9 @@ const big = (name, stage, close) => ({
 const fcBig = PA.analytics.forecastMetrics([big('Big Disco', 'Discovery', '15/07/2026'),
   big('Big Prop', 'Proposal', '20/07/2026')], mapping, today, {});
 approx('365 excludes £10m+ discovery, keeps proposed', fcBig.next365.total, 12000000);
-eq('strategic counts the £10m+ proposed only', fcBig.strategic.count, 1);
+// Strategic (£10m+) is Discovery + Proposal, so both synthetic deals count
+eq('strategic counts £10m+ discovery and proposal', fcBig.strategic.count, 2);
+approx('strategic total = both £12m', fcBig.strategic.total, 24000000);
 // Strategic All Time — no £10m+ deals in the sample
 eq('strategic none at £10m', fc.strategic.count, 0);
 approx('strategic total £0', fc.strategic.total, 0);
@@ -287,16 +289,16 @@ const recsLow = PA.analytics.buildRecords(table.rows, mapping, {}).records;
 let sC = 0, sT = 0, sW = 0;
 recsLow.forEach(r => {
   if (r.closed || r.amount < 150000) return;
-  const s = String(r.stage).toLowerCase();        // proposal or awarded only
-  if (s.indexOf('propos') === -1 && s.indexOf('award') === -1) return;
+  const s = String(r.stage).toLowerCase();        // discovery or proposal only
+  if (s.indexOf('discover') === -1 && s.indexOf('propos') === -1) return;
   sC++; sT += r.amount; sW += r.weighted;
 });
-eq('strategic count @150k (proposed/awarded only)', fcLow.strategic.count, sC);
+eq('strategic count @150k (discovery/proposal only)', fcLow.strategic.count, sC);
 approx('strategic total @150k', fcLow.strategic.total, sT);
 approx('strategic weighted @150k', fcLow.strategic.weighted, sW);
-// Stage gate excludes earlier-stage big deals (Monarch £300k Prospecting is out)
-eq('strategic excludes prospecting', fcLow.strategic.items.every(it => !/prospect|qualif|negoti/i.test(it.stage)), true);
-eq('strategic includes only proposed/awarded', fcLow.strategic.items.every(it => /propos|award/i.test(it.stage)), true);
+// Stage gate excludes other stages (Monarch £300k Prospecting, Umbrella Awarded out)
+eq('strategic excludes prospecting/awarded', fcLow.strategic.items.every(it => !/prospect|qualif|negoti|award/i.test(it.stage)), true);
+eq('strategic includes only discovery/proposal', fcLow.strategic.items.every(it => /discover|propos/i.test(it.stage)), true);
 // Filters flow through (Jane is a subset of everyone)
 const fcJane = PA.analytics.forecastMetrics(table.rows, mapping, today, { filters: { owner: ['Jane Smith'] } });
 eq('forecast respects salesperson filter', fcJane.next365.total <= fc.next365.total, true);

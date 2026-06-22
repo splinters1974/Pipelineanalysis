@@ -177,6 +177,11 @@ approx('awarded total', ins.awardedTotal, 145500);
 eq('awarded sorted by value desc', ins.awarded.every((a, i, arr) => i === 0 || arr[i - 1].amount >= a.amount), true);
 eq('awarded carries owner', ins.awarded[0].owner === 'John Doe', true); // Globex 85.5k is top
 eq('awarded carries name + value', ins.awarded[0].name === 'Globex Expansion' && ins.awarded[0].amount === 85500, true);
+// Awarded owner exclusion (default excludes 'finlay' — none in sample, so 2 remain)
+eq('awarded default keeps both', ins.awarded.length, 2);
+const insExcl = PA.analytics.insightMetrics(table.rows, mapping, today, { awardedExcludeOwners: ['john'] });
+eq('awarded excludes John (Globex)', insExcl.awarded.length, 1);
+eq('awarded excl leaves Soylent', insExcl.awarded[0].name, 'Soylent Renewal');
 
 // ---- Filters ----
 const dv = PA.analytics.distinctFilterValues(table.rows, mapping, { currentYear: 2026 });
@@ -255,11 +260,16 @@ const recsLow = PA.analytics.buildRecords(table.rows, mapping, {}).records;
 let sC = 0, sT = 0, sW = 0;
 recsLow.forEach(r => {
   if (r.closed || r.amount < 150000) return;
+  const s = String(r.stage).toLowerCase();        // proposal or awarded only
+  if (s.indexOf('propos') === -1 && s.indexOf('award') === -1) return;
   sC++; sT += r.amount; sW += r.weighted;
 });
-eq('strategic count @150k', fcLow.strategic.count, sC);
+eq('strategic count @150k (proposed/awarded only)', fcLow.strategic.count, sC);
 approx('strategic total @150k', fcLow.strategic.total, sT);
 approx('strategic weighted @150k', fcLow.strategic.weighted, sW);
+// Stage gate excludes earlier-stage big deals (Monarch £300k Prospecting is out)
+eq('strategic excludes prospecting', fcLow.strategic.items.every(it => !/prospect|qualif|negoti/i.test(it.stage)), true);
+eq('strategic includes only proposed/awarded', fcLow.strategic.items.every(it => /propos|award/i.test(it.stage)), true);
 // Filters flow through (Jane is a subset of everyone)
 const fcJane = PA.analytics.forecastMetrics(table.rows, mapping, today, { filters: { owner: ['Jane Smith'] } });
 eq('forecast respects salesperson filter', fcJane.next365.total <= fc.next365.total, true);

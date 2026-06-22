@@ -68,6 +68,11 @@
 
   // Opportunities at or above this value are "strategic / early-stage".
   var STRATEGIC_THRESHOLD = 10000000; // £10m
+  // Strategic deals only count when at one of these stages (lower-case match):
+  // excludes anything earlier (discovery, qualification, prospecting, etc.).
+  var STRATEGIC_STAGES = ['propos', 'award'];
+  // Owners (lower-case substring) whose AWARDED pipeline is excluded.
+  var AWARDED_EXCLUDE_OWNERS = ['finlay'];
 
   function stageWeight(stage, table) {
     var s = String(stage || '').toLowerCase();
@@ -429,10 +434,17 @@
       .sort(function (a, b) { return b.total - a.total; });
 
     // --- Awarded opportunities (current year, open) — bid won, not yet booked.
+    //     Owners listed in AWARDED_EXCLUDE_OWNERS (e.g. Finlay) are excluded.
     //     Listed line by line with a running total. ---
+    var excludeOwners = options.awardedExcludeOwners || AWARDED_EXCLUDE_OWNERS;
+    function ownerExcluded(owner) {
+      var o = String(owner).toLowerCase();
+      return excludeOwners.some(function (x) { return o.indexOf(x) !== -1; });
+    }
     var awarded = recs.filter(function (r) {
       return r.year === currentYear &&
-        String(r.stage).toLowerCase().indexOf('award') !== -1;
+        String(r.stage).toLowerCase().indexOf('award') !== -1 &&
+        !ownerExcluded(r.owner);
     }).map(function (r) {
       return { name: r.name || '(unnamed)', amount: r.amount, owner: r.owner, year: r.year };
     }).sort(function (a, b) { return b.amount - a.amount; });
@@ -596,14 +608,21 @@
       if (t < end365) add(next365, r);
     });
 
-    var items = recs.filter(function (r) { return !r.closed && r.amount >= threshold; })
+    // Strategic = open, £10m+, and only at a Proposal or Awarded stage
+    // (excludes discovery and any earlier stage).
+    function isStrategic(r) {
+      if (r.closed || r.amount < threshold) return false;
+      var s = String(r.stage).toLowerCase();
+      return STRATEGIC_STAGES.some(function (x) { return s.indexOf(x) !== -1; });
+    }
+    var items = recs.filter(isStrategic)
       .map(function (r) {
         return { name: r.name || '(unnamed)', amount: r.amount, owner: r.owner, stage: r.stage, closeDate: r.date };
       })
       .sort(function (a, b) { return b.amount - a.amount; });
     var strategicTotal = items.reduce(function (s, r) { return s + r.amount; }, 0);
     var strategicWeighted = recs.reduce(function (s, r) {
-      return (!r.closed && r.amount >= threshold) ? s + r.weighted : s;
+      return isStrategic(r) ? s + r.weighted : s;
     }, 0);
 
     function monthLabel(y, m) {

@@ -532,7 +532,8 @@
     $('fcMonthLabel').textContent = f.monthLabel;
 
     $('fcOrdersMonth').textContent = f.month.count + (f.month.count === 1 ? ' order' : ' orders');
-    $('fcOrdersMonthSub').textContent = f.monthLabel + ' · ' + currency(f.month.total) + ' pipeline';
+    $('fcOrdersMonthSub').textContent = f.monthLabel + ' · ' + currency(f.month.total) + ' total · ' +
+      currency(f.month.weighted) + ' weighted';
 
     $('fc90').textContent = currency(f.next90.total);
     $('fc90Sub').textContent = f.next90Label + ' · ' + currency(f.next90.weighted) + ' weighted · ' +

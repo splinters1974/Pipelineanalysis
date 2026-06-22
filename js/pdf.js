@@ -128,15 +128,23 @@
     return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
   }
 
-  // Forecast-outlook KPI row for page 2.
+  // Forecast-outlook KPI row for page 2 — each cell shows total and weighted.
   function forecastRow(f) {
     if (!f) return null;
+    function fcell(label, big, sub) {
+      return { width: '*', stack: [
+        { text: label, style: 'kpiLabel' },
+        { text: big, style: 'kpiVal' },
+        { text: sub, style: 'muted', fontSize: 8 }
+      ] };
+    }
     return {
       columns: [
-        kpiCell('Orders this month', f.month.count + ' · ' + money(f.month.total)),
-        kpiCell('Next 90 days', money(f.next90.total)),
-        kpiCell('365-day pipeline', money(f.next365.total)),
-        kpiCell('Strategic (£10m+)', money(f.strategic.total) + ' · ' + f.strategic.count)
+        fcell('Orders this month', f.month.count + (f.month.count === 1 ? ' order' : ' orders'),
+          money(f.month.total) + ' total · ' + money(f.month.weighted) + ' wtd'),
+        fcell('Next 90 days', money(f.next90.total), money(f.next90.weighted) + ' weighted'),
+        fcell('365-day pipeline', money(f.next365.total), money(f.next365.weighted) + ' weighted'),
+        fcell('Strategic (£10m+)', money(f.strategic.total), f.strategic.count + ' opps')
       ],
       columnGap: 10, margin: [0, 0, 0, 10]
     };

@@ -71,6 +71,9 @@
   // Strategic deals only count when at one of these stages (lower-case match):
   // excludes anything earlier (discovery, qualification, prospecting, etc.).
   var STRATEGIC_STAGES = ['propos', 'award'];
+  // Forecast-pipeline windows (month / 90-day / 365-day) only count deals at
+  // these stages (lower-case match): discovery, proposed, awarded.
+  var FORECAST_STAGES = ['discover', 'propos', 'award'];
   // Owners (lower-case substring) whose AWARDED pipeline is excluded.
   var AWARDED_EXCLUDE_OWNERS = ['finlay'];
 
@@ -599,8 +602,29 @@
     function add(b, r) { b.count++; b.total += r.amount; b.weighted += r.weighted; }
     var month = bucket(), next90 = bucket(), next365 = bucket();
 
+    var excludeAwardedOwners = options.awardedExcludeOwners || AWARDED_EXCLUDE_OWNERS;
+    function stageHas(r, list) {
+      var s = String(r.stage).toLowerCase();
+      return list.some(function (x) { return s.indexOf(x) !== -1; });
+    }
+    function ownerExcluded(owner) {
+      var o = String(owner).toLowerCase();
+      return excludeAwardedOwners.some(function (x) { return o.indexOf(x) !== -1; });
+    }
+    // A deal counts toward the forecast windows when it is open, at a
+    // discovery/proposed/awarded stage, is not an awarded deal owned by an
+    // excluded owner (e.g. Finlay), and is not a £10m+ deal still at discovery.
+    function forecastable(r) {
+      if (r.closed) return false;
+      if (!stageHas(r, FORECAST_STAGES)) return false;
+      var s = String(r.stage).toLowerCase();
+      if (s.indexOf('award') !== -1 && ownerExcluded(r.owner)) return false;
+      if (r.amount >= threshold && s.indexOf('discover') !== -1) return false;
+      return true;
+    }
+
     recs.forEach(function (r) {
-      if (r.closed) return;            // only open, forecastable pipeline
+      if (!forecastable(r)) return;
       var t = r.date.getTime();
       if (t < curStart) return;
       if (t < nextMonthStart) add(month, r);

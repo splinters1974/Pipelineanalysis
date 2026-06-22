@@ -229,19 +229,28 @@ const fc = PA.analytics.forecastMetrics(table.rows, mapping, today, {});
 eq('forecast month label', fc.monthLabel, 'Jun 2026');
 eq('forecast 90 label', fc.next90Label, 'Jun 2026 – Aug 2026');
 eq('forecast 365 label', fc.next365Label, 'Jun 2026 – May 2027');
-// Recompute the windows independently from the parsed rows (open opps only).
+// Recompute the windows independently, mirroring the forecastable rule:
+// open, stage in {discovery, proposed, awarded}, not Finlay's awarded,
+// and not a £10m+ discovery deal.
 const curStart = Date.UTC(2026, 5, 1), nextM = Date.UTC(2026, 6, 1),
       e90 = Date.UTC(2026, 8, 1), e365 = Date.UTC(2027, 5, 1);
+const fcRecs = PA.analytics.buildRecords(table.rows, mapping, {}).records;
+function forecastable(r, thr = 10000000) {
+  if (r.closed) return false;
+  const s = String(r.stage).toLowerCase();
+  if (!(s.includes('discover') || s.includes('propos') || s.includes('award'))) return false;
+  if (s.includes('award') && r.owner.toLowerCase().includes('finlay')) return false;
+  if (r.amount >= thr && s.includes('discover')) return false;
+  return true;
+}
 let mC = 0, mT = 0, n90C = 0, n90T = 0, n365C = 0, n365T = 0;
-table.rows.forEach(r => {
-  if (/closed/i.test(r['Stage'])) return;
-  const d = PA.parse.parseDate(r['Close Date'], true); if (!d) return;
-  const amt = PA.parse.cleanNumber(r['Amount']); if (isNaN(amt)) return;
-  const t = d.getTime();
+fcRecs.forEach(r => {
+  if (!forecastable(r)) return;
+  const t = r.date.getTime();
   if (t < curStart) return;
-  if (t < nextM) { mC++; mT += amt; }
-  if (t < e90) { n90C++; n90T += amt; }
-  if (t < e365) { n365C++; n365T += amt; }
+  if (t < nextM) { mC++; mT += r.amount; }
+  if (t < e90) { n90C++; n90T += r.amount; }
+  if (t < e365) { n365C++; n365T += r.amount; }
 });
 eq('forecast month count', fc.month.count, mC);
 approx('forecast month total', fc.month.total, mT);
@@ -250,6 +259,24 @@ approx('forecast 90 total', fc.next90.total, n90T);
 eq('forecast 365 count', fc.next365.count, n365C);
 approx('forecast 365 total', fc.next365.total, n365T);
 eq('forecast windows nested (month<=90<=365)', fc.month.total <= fc.next90.total && fc.next90.total <= fc.next365.total, true);
+// Stage gate makes the 365 total smaller than counting every open stage
+let allOpen365 = 0;
+fcRecs.forEach(r => { if (!r.closed && r.date.getTime() >= curStart && r.date.getTime() < e365) allOpen365 += r.amount; });
+eq('365 stage-gated < all open', fc.next365.total < allOpen365, true);
+// Excluding an awarded owner reduces the 365 total by that deal's value
+// (Globex Expansion, John Doe, Awarded, £85.5k, closes 22/06/2026 → in window)
+const fcExclJohn = PA.analytics.forecastMetrics(table.rows, mapping, today, { awardedExcludeOwners: ['john'] });
+approx('365 drops excluded-owner awarded', fcExclJohn.next365.total, fc.next365.total - 85500);
+// £10m+ discovery is removed, but £10m+ proposed is kept (synthetic check)
+const big = (name, stage, close) => ({
+  'Opportunity Name': name, 'Account Name': 'A', 'Opportunity Owner': 'Zoe Ray', 'Stage': stage,
+  'Amount': '£12,000,000', 'Probability (%)': '20', 'Close Date': close, 'Created Date': '01/06/2026',
+  'Last Modified Date': '01/06/2026', 'Lead Source': 'Web', 'Next Step': '', 'Product Family': 'X', 'Region': 'EMEA'
+});
+const fcBig = PA.analytics.forecastMetrics([big('Big Disco', 'Discovery', '15/07/2026'),
+  big('Big Prop', 'Proposal', '20/07/2026')], mapping, today, {});
+approx('365 excludes £10m+ discovery, keeps proposed', fcBig.next365.total, 12000000);
+eq('strategic counts the £10m+ proposed only', fcBig.strategic.count, 1);
 // Strategic All Time — no £10m+ deals in the sample
 eq('strategic none at £10m', fc.strategic.count, 0);
 approx('strategic total £0', fc.strategic.total, 0);

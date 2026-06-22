@@ -89,6 +89,22 @@ eq('Awarded appears in 2027 by-stage', res.years[2027].byStage.some(s => s.key =
 const resClosed = PA.analytics.analyze(table.rows, mapping, { currentYear: 2026, includeClosed: true });
 approx('2026 total incl. closed', resClosed.years[2026].total, 1170500 + 515000);
 
+// Year sections exclude Finlay Anderson's AWARDED deals (but keep his other
+// stages and other owners' awarded deals).
+const synthRow = (owner, stage, amount, close) => ({
+  'Opportunity Name': owner + ' ' + stage, 'Account Name': 'A', 'Opportunity Owner': owner,
+  'Stage': stage, 'Amount': amount, 'Probability (%)': '50', 'Close Date': close,
+  'Created Date': '01/01/2026', 'Last Modified Date': '01/06/2026', 'Lead Source': 'Web',
+  'Next Step': '', 'Product Family': 'X', 'Region': 'EMEA'
+});
+const resFin = PA.analytics.analyze([
+  synthRow('Finlay Anderson', 'Awarded', '£50,000', '10/06/2026'),
+  synthRow('Finlay Anderson', 'Proposal/Price Quote', '£40,000', '12/06/2026'),
+  synthRow('Jane Smith', 'Awarded', '£30,000', '14/06/2026')
+], mapping, { currentYear: 2026 });
+approx('year total excludes Finlay awarded', resFin.years[2026].total, 70000);
+eq('year count excludes Finlay awarded only', resFin.years[2026].count, 2);
+
 // 2025 rows (Legacy 90k won, Old 30k) must be out of range, not counted
 eq('out-of-range count > 0', res.outOfRange >= 2, true);
 

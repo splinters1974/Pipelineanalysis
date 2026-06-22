@@ -77,6 +77,14 @@
   // Owners (lower-case substring) whose AWARDED pipeline is excluded.
   var AWARDED_EXCLUDE_OWNERS = ['finlay'];
 
+  // True when a record is an Awarded deal owned by an excluded owner (Finlay).
+  function isExcludedAwarded(rec, excludeOwners) {
+    excludeOwners = excludeOwners || AWARDED_EXCLUDE_OWNERS;
+    if (String(rec.stage).toLowerCase().indexOf('award') === -1) return false;
+    var o = String(rec.owner).toLowerCase();
+    return excludeOwners.some(function (x) { return o.indexOf(x) !== -1; });
+  }
+
   function stageWeight(stage, table) {
     var s = String(stage || '').toLowerCase();
     var rules = table || DEFAULT_STAGE_WEIGHTS;
@@ -231,7 +239,8 @@
     var includeClosed = !!opts.includeClosed;
 
     var built = buildRecords(rows, mapping, opts);
-    var records = applyFilters(built.records, opts.filters);
+    var records = applyFilters(built.records, opts.filters)
+      .filter(function (r) { return !isExcludedAwarded(r, opts.awardedExcludeOwners); });
     var inYears = [];
     var outOfRange = 0;
 

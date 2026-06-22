@@ -30,7 +30,7 @@
   // A deal is "stale" if its Last Modified Date is older than this many days
   // (or its close date is already in the past). Change this single value to
   // re-tune staleness everywhere.
-  var STALE_THRESHOLD_DAYS = 30;
+  var STALE_THRESHOLD_MONTHS = 6; // a deal is stale if untouched this long
 
   // Map Salesforce Product / Product Family values to Ameresco's five
   // segments. Matching is case-insensitive substring, first match wins, so
@@ -344,31 +344,18 @@
     var target = cov.target;
     var coverageRatio = cov.ratio, coverageStatus = cov.status;
 
-    // --- Panel 2: Stale deals ---
-    var MS_PER_DAY = 86400000;
-    function daysSince(d) {
-      return d ? Math.floor((today.getTime() - d.getTime()) / MS_PER_DAY) : null;
-    }
-    var staleItems = active.filter(function (r) {
-      var pastClose = r.date.getTime() < today.getTime();
-      var modDays = daysSince(r.lastModified);
-      var staleByMod = modDays != null && modDays > STALE_THRESHOLD_DAYS;
-      return pastClose || staleByMod;
-    }).map(function (r) {
-      var modDays = daysSince(r.lastModified);
-      var daysPastClose = daysSince(r.date);
-      // Rank by whichever made it stale; biggest first.
-      var staleScore = Math.max(
-        daysPastClose > 0 ? daysPastClose : 0,
-        (modDays != null && modDays > STALE_THRESHOLD_DAYS) ? modDays : 0
-      );
-      return {
-        name: r.name, owner: r.owner, amount: r.amount,
-        closeDate: r.date, daysSinceModified: modDays, staleScore: staleScore
-      };
-    }).sort(function (a, b) { return b.staleScore - a.staleScore; });
-    var staleTotal = 0;
-    staleItems.forEach(function (it) { staleTotal += it.amount; });
+    // --- Panel 2: Stale deals — OPEN opportunities (any year, filters applied)
+    //     not amended in more than STALE_THRESHOLD_MONTHS. Reported as a count
+    //     plus total and weighted value (no per-deal list). ---
+    var staleCutoff = Date.UTC(today.getUTCFullYear(),
+      today.getUTCMonth() - STALE_THRESHOLD_MONTHS, today.getUTCDate(), 12, 0, 0);
+    var staleCount = 0, staleTotal = 0, staleWeighted = 0;
+    records.forEach(function (r) {
+      if (r.closed || !r.lastModified) return;
+      if (r.lastModified.getTime() < staleCutoff) {
+        staleCount++; staleTotal += r.amount; staleWeighted += r.weighted;
+      }
+    });
 
     // --- Panel 3: By segment ---
     var segMap = {};
@@ -389,7 +376,10 @@
       weightedForecast: weightedForecast,
       coverageRatio: coverageRatio,
       coverageStatus: coverageStatus,
-      stale: { count: staleItems.length, totalValue: staleTotal, items: staleItems },
+      stale: {
+        count: staleCount, totalValue: staleTotal, weightedValue: staleWeighted,
+        thresholdMonths: STALE_THRESHOLD_MONTHS
+      },
       segments: segments,
       hasLastModified: !!mapping.lastModified
     };
@@ -438,10 +428,10 @@
     var wonByOwner = Object.keys(wonMap).map(function (k) { return wonMap[k]; })
       .sort(function (a, b) { return b.total - a.total; });
 
-    // --- Awarded opportunities (current+next year, open) — bid won, not yet
-    //     booked. Listed line by line with a running total. ---
+    // --- Awarded opportunities (current year, open) — bid won, not yet booked.
+    //     Listed line by line with a running total. ---
     var awarded = recs.filter(function (r) {
-      return (r.year === currentYear || r.year === nextYear) &&
+      return r.year === currentYear &&
         String(r.stage).toLowerCase().indexOf('award') !== -1;
     }).map(function (r) {
       return { name: r.name || '(unnamed)', amount: r.amount, owner: r.owner, year: r.year };
@@ -612,6 +602,9 @@
       })
       .sort(function (a, b) { return b.amount - a.amount; });
     var strategicTotal = items.reduce(function (s, r) { return s + r.amount; }, 0);
+    var strategicWeighted = recs.reduce(function (s, r) {
+      return (!r.closed && r.amount >= threshold) ? s + r.weighted : s;
+    }, 0);
 
     function monthLabel(y, m) {
       var yy = y + Math.floor(m / 12), mm = ((m % 12) + 12) % 12;
@@ -622,7 +615,10 @@
       month: month, monthLabel: monthLabel(ty, tm),
       next90: next90, next90Label: monthLabel(ty, tm) + ' – ' + monthLabel(ty, tm + 2),
       next365: next365, next365Label: monthLabel(ty, tm) + ' – ' + monthLabel(ty, tm + 11),
-      strategic: { threshold: threshold, count: items.length, total: strategicTotal, items: items }
+      strategic: {
+        threshold: threshold, count: items.length,
+        total: strategicTotal, weighted: strategicWeighted, items: items
+      }
     };
   }
 
@@ -641,7 +637,7 @@
     STRATEGIC_THRESHOLD: STRATEGIC_THRESHOLD,
     DEFAULT_STAGE_WEIGHTS: DEFAULT_STAGE_WEIGHTS,
     SEGMENT_MAP: SEGMENT_MAP,
-    STALE_THRESHOLD_DAYS: STALE_THRESHOLD_DAYS,
+    STALE_THRESHOLD_MONTHS: STALE_THRESHOLD_MONTHS,
     MONTH_LABELS: MONTH_LABELS
   };
 })(window.PA = window.PA || {});

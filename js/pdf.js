@@ -144,24 +144,10 @@
           money(f.month.total) + ' total · ' + money(f.month.weighted) + ' wtd'),
         fcell('Next 90 days', money(f.next90.total), money(f.next90.weighted) + ' weighted'),
         fcell('365-day pipeline', money(f.next365.total), money(f.next365.weighted) + ' weighted'),
-        fcell('Strategic (£10m+)', money(f.strategic.total), f.strategic.count + ' opps')
+        fcell('Strategic All Time (£10m+)', money(f.strategic.total), money(f.strategic.weighted) + ' weighted')
       ],
       columnGap: 10, margin: [0, 0, 0, 10]
     };
-  }
-
-  function strategicTable(f) {
-    if (!f || !f.strategic.count) return null;
-    var body = [[th('Strategic opportunity'), th('Value', 'right'), th('Owner'), th('Stage')]];
-    f.strategic.items.forEach(function (it) {
-      body.push([it.name, { text: money(it.amount), alignment: 'right' }, it.owner, it.stage]);
-    });
-    body.push([
-      { text: 'Total strategic', bold: true },
-      { text: money(f.strategic.total), alignment: 'right', bold: true },
-      { text: String(f.strategic.count), colSpan: 2, bold: true }, {}
-    ]);
-    return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
   }
 
   function proposedTable(list) {
@@ -188,23 +174,6 @@
       body.push([s.key, { text: money(s.total), alignment: 'right' }, { text: String(s.count), alignment: 'right' }]);
     });
     return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
-  }
-
-  function staleTable(stale) {
-    var body = [[th('Opportunity'), th('Owner'), th('Amount', 'right'), th('Close', 'right'), th('Days idle', 'right')]];
-    if (!stale.items.length) {
-      body.push([{ text: 'No stale deals.', colSpan: 5, style: 'muted' }, {}, {}, {}, {}]);
-    } else {
-      stale.items.forEach(function (it) {
-        body.push([
-          it.name || '(unnamed)', it.owner,
-          { text: money(it.amount), alignment: 'right' },
-          { text: fmtDate(it.closeDate), alignment: 'right' },
-          { text: it.daysSinceModified == null ? 'n/a' : String(it.daysSinceModified), alignment: 'right' }
-        ]);
-      });
-    }
-    return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
   }
 
   function buildDocDefinition(p) {
@@ -239,7 +208,6 @@
       perfRow(p.performance),
       { text: 'Forecast outlook' + (p.forecast ? ' — ' + p.forecast.monthLabel : ''), style: 'h3' },
       forecastRow(p.forecast),
-      strategicTable(p.forecast),
       {
         columns: [
           { width: 'auto', stack: [
@@ -264,7 +232,7 @@
         ],
         columnGap: 18
       },
-      { text: 'Awarded opportunities — ' + cur + ' & ' + nxt, style: 'h3' },
+      { text: 'Awarded opportunities — ' + cur, style: 'h3' },
       awardedTable(ins.awarded || [], ins.awardedTotal || 0),
       { text: 'Top 10 proposed opportunities', style: 'h3' },
       proposedTable(p.proposed || []),
@@ -279,8 +247,9 @@
         ],
         columnGap: 18
       },
-      { text: 'Stale deals — ' + h.stale.count + ' deals · ' + money(h.stale.totalValue), style: 'h3', margin: [0, 8, 0, 4] },
-      staleTable(h.stale)
+      { text: 'Stale deals — ' + h.stale.count + ' deals', style: 'h3', margin: [0, 8, 0, 4] },
+      { text: 'Open deals not amended in more than 6 months · ' + money(h.stale.totalValue) +
+        ' total · ' + money(h.stale.weightedValue) + ' weighted', style: 'muted' }
     ].filter(Boolean);
 
     return {

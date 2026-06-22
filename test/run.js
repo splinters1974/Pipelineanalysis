@@ -115,11 +115,22 @@ eq('coverage status red (<50%)', health.coverageStatus, 'red');
 eq('coverage green at 80%', PA.analytics.healthMetrics(table.rows, mapping, String(W2026 / 0.8), today, {}).coverageStatus, 'green');
 eq('coverage amber at ~60%', PA.analytics.healthMetrics(table.rows, mapping, String(W2026 / 0.6), today, {}).coverageStatus, 'amber');
 
-// Stale: Acme(15/03), Stark(18/05), Nexus(07/04), Wonka(05/02) — past close in 2026
-eq('stale count', health.stale.count, 4);
-approx('stale total value', health.stale.totalValue, 120000 + 95000 + 65000 + 175000);
-eq('most stale first (Wonka 05/02)', health.stale.items[0].name, 'Wonka Platform');
-eq('stale items carry days-since-modified', typeof health.stale.items[0].daysSinceModified, 'number');
+// Stale = OPEN deals (any year) not amended in >6 months (before 14 Dec 2025).
+// Only "Stale Lead 2025" (LM 15/08/2025, Prospecting, £30k @10%) qualifies.
+const staleCut = Date.UTC(2025, 11, 14, 12, 0, 0);
+const recsAll = PA.analytics.buildRecords(table.rows, mapping, {}).records;
+let stc = 0, stt = 0, stw = 0;
+recsAll.forEach(r => {
+  if (r.closed || !r.lastModified) return;
+  if (r.lastModified.getTime() < staleCut) { stc++; stt += r.amount; stw += r.weighted; }
+});
+eq('stale count (6mo, all open)', health.stale.count, stc);
+eq('stale count is 1 in sample', health.stale.count, 1);
+approx('stale total value', health.stale.totalValue, stt);
+approx('stale total is £30k', health.stale.totalValue, 30000);
+approx('stale weighted value', health.stale.weightedValue, stw);
+approx('stale weighted is £3k', health.stale.weightedValue, 3000);
+eq('stale threshold months', health.stale.thresholdMonths, 6);
 
 // Segments sum back to the current-year open pipeline
 const segTotal = health.segments.reduce((s, x) => s + x.total, 0);
@@ -159,13 +170,13 @@ eq('top proposed sorted by score', ins.topProposed.every((it, i, a) => i === 0 |
 eq('top proposed carries next step', typeof ins.topProposed[0].nextStep, 'string');
 eq('allOpps available for add dropdown', ins.allOpps.length > 0, true);
 
-// Awarded opportunities (current+next year): Globex 85.5k, Soylent 60k (2026),
-// Umbrella 180k, Tyrell 160k (2027) = 4 deals, 485.5k, sorted by value desc.
-eq('awarded count', ins.awarded.length, 4);
-approx('awarded total', ins.awardedTotal, 485500);
+// Awarded opportunities (CURRENT YEAR only): Globex 85.5k + Soylent 60k (2026)
+// = 2 deals, 145.5k, sorted by value desc (Umbrella/Tyrell are 2027, excluded).
+eq('awarded count (2026 only)', ins.awarded.length, 2);
+approx('awarded total', ins.awardedTotal, 145500);
 eq('awarded sorted by value desc', ins.awarded.every((a, i, arr) => i === 0 || arr[i - 1].amount >= a.amount), true);
-eq('awarded carries owner', ins.awarded[0].owner === 'Sara Lee', true); // Umbrella 180k is top
-eq('awarded carries name + value', ins.awarded[0].name === 'Umbrella Renewal' && ins.awarded[0].amount === 180000, true);
+eq('awarded carries owner', ins.awarded[0].owner === 'John Doe', true); // Globex 85.5k is top
+eq('awarded carries name + value', ins.awarded[0].name === 'Globex Expansion' && ins.awarded[0].amount === 85500, true);
 
 // ---- Filters ----
 const dv = PA.analytics.distinctFilterValues(table.rows, mapping, { currentYear: 2026 });
@@ -234,20 +245,21 @@ approx('forecast 90 total', fc.next90.total, n90T);
 eq('forecast 365 count', fc.next365.count, n365C);
 approx('forecast 365 total', fc.next365.total, n365T);
 eq('forecast windows nested (month<=90<=365)', fc.month.total <= fc.next90.total && fc.next90.total <= fc.next365.total, true);
-// No £10m+ deals in the sample
+// Strategic All Time — no £10m+ deals in the sample
 eq('strategic none at £10m', fc.strategic.count, 0);
 approx('strategic total £0', fc.strategic.total, 0);
-// Lower the threshold to exercise detection + sorting
+approx('strategic weighted £0', fc.strategic.weighted, 0);
+// Lower the threshold to exercise detection + total/weighted
 const fcLow = PA.analytics.forecastMetrics(table.rows, mapping, today, { strategicThreshold: 150000 });
-let sC = 0, sT = 0;
-table.rows.forEach(r => {
-  if (/closed/i.test(r['Stage'])) return;
-  const amt = PA.parse.cleanNumber(r['Amount']);
-  if (isNaN(amt) || amt < 150000) return; sC++; sT += amt;
+const recsLow = PA.analytics.buildRecords(table.rows, mapping, {}).records;
+let sC = 0, sT = 0, sW = 0;
+recsLow.forEach(r => {
+  if (r.closed || r.amount < 150000) return;
+  sC++; sT += r.amount; sW += r.weighted;
 });
 eq('strategic count @150k', fcLow.strategic.count, sC);
 approx('strategic total @150k', fcLow.strategic.total, sT);
-eq('strategic sorted desc', fcLow.strategic.items.every((it, i, a) => i === 0 || a[i - 1].amount >= it.amount), true);
+approx('strategic weighted @150k', fcLow.strategic.weighted, sW);
 // Filters flow through (Jane is a subset of everyone)
 const fcJane = PA.analytics.forecastMetrics(table.rows, mapping, today, { filters: { owner: ['Jane Smith'] } });
 eq('forecast respects salesperson filter', fcJane.next365.total <= fc.next365.total, true);
@@ -270,13 +282,13 @@ has('by stage section', 'By stage — 2026');
 has('timeline section', 'Timeline (quarter) — 2027');
 has('segment section', 'By segment,Pipeline,Count');
 has('Data Centres segment', 'Data Centres,350000,2');
-has('stale list header', 'Name,Owner,Amount,Close date,Days since modified');
+has('stale section header', 'Stale deals (not amended in more than 6 months),Count,Total,Weighted');
 has('cities segment label', 'Cities & Local Government');
 has('insights section', 'Pipeline Insights');
 has('avg age row', 'Avg open opportunity age (days)');
 has('won by owner section', 'Won by owner,Amount,Count');
 has('awarded section', 'Awarded opportunities,Value,Owner');
-has('awarded total row', 'Total awarded,485500,4');
+has('awarded total row', 'Total awarded,145500,2');
 has('lead source section', 'Lead source,Count,%');
 has('top proposed section', 'Top 10 proposed,Value,Close date,Rating %,Next step');
 has('filters applied row', 'Filters applied,Salesperson: Jane Smith');
@@ -286,8 +298,7 @@ has('sales performance section', 'Sales performance — 2026');
 has('velocity row', 'Pipeline velocity (£/day)');
 has('forecast section', 'Forecast outlook — Jun 2026');
 has('forecast month row', 'Orders this month (Jun 2026)');
-has('forecast strategic section', 'Strategic opportunities (£10m+)');
-has('forecast strategic total', 'Total strategic,');
+has('forecast strategic all time', 'Strategic All Time (£10m+),');
 // CRLF line endings for spreadsheet friendliness
 eq('csv uses CRLF', /\r\n/.test(csvOut), true);
 
@@ -318,12 +329,13 @@ docHas('person title', 'Pipeline Analysis — Jane Smith');
 docHas('person tag', 'Salesperson report');
 docHas('forecast heading', 'Forecast outlook — Jun 2026');
 docHas('forecast kpi', 'Orders this month');
-docHas('forecast strategic table', 'Total strategic');
+docHas('forecast strategic all time', 'Strategic All Time (£10m+)');
 docHas('sales performance row', 'Sales performance');
 docHas('win rate kpi', 'Win rate (count)');
 docHas('insights page', 'Pipeline Insights — 2026');
-docHas('awarded section', 'Awarded opportunities — 2026 & 2027');
+docHas('awarded section', 'Awarded opportunities — 2026');
 docHas('awarded total', 'Total awarded');
+docHas('stale summary line', 'Open deals not amended in more than 6 months');
 docHas('avg age', 'Avg age of open opportunities');
 docHas('top 10 heading', 'Top 10 proposed opportunities');
 docHas('segments/stale page', 'Segments & Stale deals — 2026');

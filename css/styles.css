@@ -397,7 +397,9 @@ main { padding: 28px 0 48px; }
 .coverage-result .muted { text-align: left; }
 
 /* Stale deals panel */
-.stale-summary { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.stale-summary { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.stale-values { font-size: 13px; font-weight: 500; color: var(--ink); margin-top: 4px; }
+.stale-note { font-size: 12px; margin: 6px 0 0; }
 .stale-list {
   max-height: 200px;
   overflow-y: auto;

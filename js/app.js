@@ -544,31 +544,10 @@
       f.next365.count + (f.next365.count === 1 ? ' deal' : ' deals');
 
     $('fcStrategic').textContent = currency(f.strategic.total);
-    $('fcStrategicSub').textContent = f.strategic.count
-      ? f.strategic.count + (f.strategic.count === 1 ? ' opportunity' : ' opportunities')
-      : 'none in pipeline';
-
-    // Line-by-line strategic list (only when there are any).
-    var block = $('fcStrategicBlock');
-    if (f.strategic.count) {
-      block.style.display = '';
-      var head = '<thead><tr><th>Opportunity</th><th>Value</th><th>Owner</th><th>Stage</th></tr></thead>';
-      var body = f.strategic.items.map(function (it) {
-        return '<tr>' +
-          '<td>' + escapeHtml(it.name) + '</td>' +
-          '<td class="num">' + currency(it.amount) + '</td>' +
-          '<td>' + escapeHtml(it.owner) + '</td>' +
-          '<td>' + escapeHtml(it.stage) + '</td>' +
-        '</tr>';
-      }).join('');
-      var foot = '<tfoot><tr class="total-row"><td>Total strategic</td><td class="num">' +
-        currency(f.strategic.total) + '</td><td colspan="2">' + f.strategic.count +
-        (f.strategic.count === 1 ? ' opportunity' : ' opportunities') + '</td></tr></tfoot>';
-      $('fcStrategicTable').innerHTML = head + '<tbody>' + body + '</tbody>' + foot;
-    } else {
-      block.style.display = 'none';
-      $('fcStrategicTable').innerHTML = '';
-    }
+    $('fcStrategicSub').textContent = currency(f.strategic.weighted) + ' weighted · ' +
+      (f.strategic.count
+        ? f.strategic.count + (f.strategic.count === 1 ? ' opportunity' : ' opportunities')
+        : 'none £10m+');
   }
 
   // Sales Performance card (current year).
@@ -635,7 +614,7 @@
     }
 
     // Awarded opportunities (current+next year) — name, value, owner + total.
-    $('awardedYearLabel').textContent = ins.currentYear + ' & ' + (ins.currentYear + 1);
+    $('awardedYearLabel').textContent = ins.currentYear;
     var awHead = '<thead><tr><th>Opportunity</th><th>Value</th><th>Owner</th></tr></thead>';
     var awBody = ins.awarded.map(function (a) {
       return '<tr>' +
@@ -717,19 +696,15 @@
     var covNext = PA.analytics.coverage(nextWeighted, state.nextTarget);
     renderCoverage($('coverageResultNext'), covNext.ratio, covNext.status, nextWeighted, covNext.target, nextYear);
 
-    // Panel 2 — Stale deals
-    $('staleSummary').innerHTML = '<strong>' + h.stale.count + '</strong> stale ' +
-      (h.stale.count === 1 ? 'deal' : 'deals') + ' · ' + currency(h.stale.totalValue);
-    var listHtml = h.stale.items.map(function (it) {
-      var mod = it.daysSinceModified == null ? 'modified n/a'
-              : (it.daysSinceModified + 'd since modified');
-      return '<div class="stale-item">' +
-        '<span class="stale-name">' + escapeHtml(it.name || '(unnamed)') + '</span>' +
-        '<span class="stale-meta">' + escapeHtml(it.owner) + ' · ' + currency(it.amount) +
-        ' · close ' + fmtDate(it.closeDate) + ' · ' + mod + '</span>' +
-      '</div>';
-    }).join('');
-    $('staleList').innerHTML = listHtml || '<p class="muted">No stale deals — nice and fresh.</p>';
+    // Panel 2 — Stale deals (open deals not amended in 6+ months)
+    if (!h.hasLastModified) {
+      $('staleSummary').innerHTML = '<span class="muted">Map a Last Modified Date column to see stale deals.</span>';
+    } else {
+      $('staleSummary').innerHTML =
+        '<strong>' + h.stale.count + '</strong> stale ' + (h.stale.count === 1 ? 'deal' : 'deals') +
+        '<div class="stale-values">' + currency(h.stale.totalValue) + ' total · ' +
+        currency(h.stale.weightedValue) + ' weighted</div>';
+    }
 
     // Panel 3 — By segment
     PA.charts.horizontalBar('segmentChart',

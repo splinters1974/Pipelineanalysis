@@ -75,12 +75,8 @@
       health.segments.forEach(function (s) { rows.push([s.key, num(s.total), s.count]); });
       rows.push([]);
 
-      rows.push(['Stale deals', health.stale.count, num(health.stale.totalValue)]);
-      rows.push(['Name', 'Owner', 'Amount', 'Close date', 'Days since modified']);
-      health.stale.items.forEach(function (it) {
-        rows.push([it.name, it.owner, num(it.amount), fmtDate(it.closeDate),
-          it.daysSinceModified == null ? 'n/a' : it.daysSinceModified]);
-      });
+      rows.push(['Stale deals (not amended in more than 6 months)', 'Count', 'Total', 'Weighted']);
+      rows.push(['', health.stale.count, num(health.stale.totalValue), num(health.stale.weightedValue)]);
       rows.push([]);
     }
 
@@ -133,10 +129,7 @@
       rows.push(['Orders this month (' + fc.monthLabel + ')', fc.month.count, num(fc.month.total), num(fc.month.weighted)]);
       rows.push(['Next 90 days (' + fc.next90Label + ')', fc.next90.count, num(fc.next90.total), num(fc.next90.weighted)]);
       rows.push(['365-day pipeline (' + fc.next365Label + ')', fc.next365.count, num(fc.next365.total), num(fc.next365.weighted)]);
-      rows.push([]);
-      rows.push(['Strategic opportunities (£10m+)', 'Value', 'Owner', 'Stage']);
-      fc.strategic.items.forEach(function (it) { rows.push([it.name, num(it.amount), it.owner, it.stage]); });
-      rows.push(['Total strategic', num(fc.strategic.total), fc.strategic.count]);
+      rows.push(['Strategic All Time (£10m+)', fc.strategic.count, num(fc.strategic.total), num(fc.strategic.weighted)]);
       rows.push([]);
     }
 

@@ -242,7 +242,7 @@
       },
       { text: 'Awarded opportunities — ' + cur, style: 'h3' },
       awardedTable(ins.awarded || [], ins.awardedTotal || 0),
-      { text: 'Top 10 proposed opportunities', style: 'h3' },
+      { text: 'Top 10 Opportunities for this Year', style: 'h3' },
       proposedTable(p.proposed || []),
 
       // Page 3 — segment + technology + stale

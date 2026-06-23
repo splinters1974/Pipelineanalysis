@@ -189,11 +189,32 @@ eq('won owners sorted desc', ins.wonByOwner[0].total >= ins.wonByOwner[1].total,
 eq('lead sources present', ins.leadSources.length > 0, true);
 approx('lead source pct ~100', ins.leadSources.reduce((a, b) => a + b.pct, 0), 100, 0.5);
 
-// Top 10 proposed — sample has 7 Proposal-stage deals, so all 7 show (<=10)
-eq('top proposed = 7 candidates (<=10)', ins.topProposed.length, 7);
-eq('top proposed sorted by close date asc', ins.topProposed.every((it, i, a) => i === 0 || a[i - 1].closeDate.getTime() <= it.closeDate.getTime()), true);
+// Top 10 — sample has 4 Proposal-stage deals closing in 2026 (no Discovery),
+// shown soonest-to-close first (Wonka 05/02 → Acme 15/03 → Stark 18/05 → Oscorp 23/10).
+eq('top 10 = 4 proposals in 2026', ins.topProposed.length, 4);
+eq('top 10 soonest first', ins.topProposed[0].name, 'Wonka Platform');
+eq('top 10 sorted by close date asc', ins.topProposed.every((it, i, a) => i === 0 || a[i - 1].closeDate.getTime() <= it.closeDate.getTime()), true);
+eq('top 10 are all proposed (no discovery in sample)', ins.topProposed.every(it => /propos/i.test(it.stage)), true);
 eq('top proposed carries next step', typeof ins.topProposed[0].nextStep, 'string');
 eq('allOpps available for add dropdown', ins.allOpps.length > 0, true);
+
+// Selection — >10 proposed: keep the 10 largest by value, never reach Discovery
+const manyProp = [];
+for (let i = 1; i <= 12; i++) manyProp.push(synthRow('Rep', 'Proposal/Price Quote', '£' + (i * 10000), '15/06/2026'));
+const insMany = PA.analytics.insightMetrics(manyProp.concat([synthRow('Rep', 'Discovery', '£999,999', '10/06/2026')]), mapping, today, {});
+eq('top 10 capped at 10', insMany.topProposed.length, 10);
+eq('top 10 excludes discovery when 10 proposed', insMany.topProposed.every(it => /propos/i.test(it.stage)), true);
+eq('top 10 keeps largest proposals (smallest chosen = 30k)', Math.min(...insMany.topProposed.map(it => it.amount)), 30000);
+
+// Selection — <10 proposed: fill remaining slots with the largest Discovery deals
+const props6 = [], disco8 = [];
+for (let i = 1; i <= 6; i++) props6.push(synthRow('Rep', 'Proposal/Price Quote', '£' + (i * 10000), '15/06/2026'));
+for (let i = 1; i <= 8; i++) disco8.push(synthRow('Rep', 'Discovery', '£' + (i * 5000), '12/06/2026'));
+const insFill = PA.analytics.insightMetrics(props6.concat(disco8), mapping, today, {});
+eq('fills to 10', insFill.topProposed.length, 10);
+eq('all 6 proposed kept', insFill.topProposed.filter(it => /propos/i.test(it.stage)).length, 6);
+eq('4 discovery fillers', insFill.topProposed.filter(it => /discover/i.test(it.stage)).length, 4);
+eq('discovery fillers are largest (smallest = 25k)', Math.min(...insFill.topProposed.filter(it => /discover/i.test(it.stage)).map(it => it.amount)), 25000);
 
 // Awarded opportunities (CURRENT YEAR only): Globex 85.5k + Soylent 60k (2026)
 // = 2 deals, 145.5k, sorted by value desc (Umbrella/Tyrell are 2027, excluded).
@@ -355,7 +376,7 @@ has('won by owner section', 'Won by owner,Amount,Count');
 has('awarded section', 'Awarded opportunities,Value,Owner');
 has('awarded total row', 'Total awarded,145500,2');
 has('lead source section', 'Lead source,Count,%');
-has('top proposed section', 'Top 10 proposed,Value,Close date,Rating %,Next step');
+has('top proposed section', 'Top 10 Opportunities for this Year,Value,Close date,Rating %,Next step');
 has('filters applied row', 'Filters applied,Salesperson: Jane Smith');
 has('salesperson title', 'Pipeline Analysis summary — Jane Smith');
 has('salesperson row', 'Salesperson,Jane Smith');
@@ -402,7 +423,7 @@ docHas('awarded section', 'Awarded opportunities — 2026');
 docHas('awarded total', 'Total awarded');
 docHas('stale summary line', 'Open deals not amended in more than 6 months');
 docHas('avg age', 'Avg age of open opportunities');
-docHas('top 10 heading', 'Top 10 proposed opportunities');
+docHas('top 10 heading', 'Top 10 Opportunities for this Year');
 docHas('segments/stale page', 'Segments & Stale deals — 2026');
 const foot = doc.footer(2, 3);
 eq('pdf footer shows page numbers', JSON.stringify(foot).indexOf('2 / 3') !== -1, true);

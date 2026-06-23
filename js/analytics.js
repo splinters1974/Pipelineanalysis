@@ -491,14 +491,19 @@
       return o;
     }).sort(function (a, b) { return b.count - a.count; });
 
-    // --- Top 10 proposed opportunities (current+next year), ranked by close
-    //     date, soonest to close first. ---
-    var proposed = recs.filter(function (r) {
-      return (r.year === currentYear || r.year === nextYear) &&
-        String(r.stage).toLowerCase().indexOf('propos') !== -1;
-    });
-    var topProposed = proposed.sort(function (a, b) { return a.date.getTime() - b.date.getTime(); })
-      .slice(0, 10).map(function (r) {
+    // --- Top 10 opportunities closing in the CURRENT YEAR: take all Proposed
+    //     deals first (largest value wins when there are more than 10), then
+    //     fill any remaining slots with Discovery deals (largest value first).
+    //     Displayed soonest-to-close first. ---
+    var byValueDesc = function (a, b) { return b.amount - a.amount; };
+    function stageIs(r, key) { return String(r.stage).toLowerCase().indexOf(key) !== -1; }
+    var curOpen = recs.filter(function (r) { return r.year === currentYear && !r.closed; });
+    var proposedDeals = curOpen.filter(function (r) { return stageIs(r, 'propos'); }).sort(byValueDesc);
+    var discoveryDeals = curOpen.filter(function (r) { return stageIs(r, 'discover'); }).sort(byValueDesc);
+    var chosen = proposedDeals.slice(0, 10);
+    if (chosen.length < 10) chosen = chosen.concat(discoveryDeals.slice(0, 10 - chosen.length));
+    var topProposed = chosen.sort(function (a, b) { return a.date.getTime() - b.date.getTime(); })
+      .map(function (r) {
         return {
           name: r.name || '(unnamed)', amount: r.amount, closeDate: r.date,
           probability: r.probability, nextStep: r.nextStep || '', stage: r.stage

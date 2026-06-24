@@ -37,6 +37,7 @@
     filters: { owner: [], region: [], segment: [], stage: [], leadSource: [] },
     proposedRemoved: {}, // {name: true} manually removed from the top-10 list
     proposedAdded: [],   // [name] manually added to the top-10 list
+    dayFirst: null,      // date format override: null=auto, true=D/M/Y, false=M/D/Y
     currentYear: 2026   // overridable; defaults to system year below
   };
   state.currentYear = new Date().getFullYear();
@@ -52,6 +53,7 @@
     el.mappingPanel = $('mappingPanel');
     el.mappingSection = $('mappingSection');
     el.dashboard = $('dashboard');
+    el.dataQuality = $('dataQualityCard');
     el.status = $('statusBar');
     el.granularity = $('granularitySelect');
     el.salespersonSelect = $('salespersonSelect');
@@ -128,6 +130,16 @@
       delete state.proposedRemoved[name];
       if (state.proposedAdded.indexOf(name) === -1) state.proposedAdded.push(name);
       renderInsights(); saveState();
+    });
+
+    // Date-format override lives inside the Data Quality card, which is
+    // re-rendered on every recompute — use delegation on the stable card root.
+    el.dataQuality.addEventListener('change', function (e) {
+      var radio = e.target.closest && e.target.closest('input[name="dqDateFormat"]');
+      if (!radio) return;
+      state.dayFirst = radio.value === 'dayfirst' ? true
+                     : radio.value === 'monthfirst' ? false : null;
+      recompute(); render(); saveState();
     });
 
     // Charts don't reflow for print on their own — resize them first.
@@ -295,7 +307,8 @@
         nextTarget: state.nextTarget,
         filters: state.filters,
         proposedRemoved: state.proposedRemoved,
-        proposedAdded: state.proposedAdded
+        proposedAdded: state.proposedAdded,
+        dayFirst: state.dayFirst
       }));
     } catch (e) {
       // Most likely the dataset is too large for localStorage; carry on without
@@ -320,6 +333,7 @@
     state.filters = Object.assign({ owner: [], region: [], segment: [], stage: [], leadSource: [] }, saved.filters || {});
     state.proposedRemoved = saved.proposedRemoved || {};
     state.proposedAdded = saved.proposedAdded || [];
+    state.dayFirst = saved.dayFirst == null ? null : saved.dayFirst;
 
     // Reflect restored settings in the controls.
     el.granularity.value = state.timelineGranularity;
@@ -342,6 +356,7 @@
     state.filters = { owner: [], region: [], segment: [], stage: [], leadSource: [] };
     state.proposedRemoved = {};
     state.proposedAdded = [];
+    state.dayFirst = null;
     el.targetInput.value = '';
     el.nextTargetInput.value = '';
     el.includeClosed.checked = false;
@@ -499,7 +514,9 @@
     state.results = PA.analytics.analyze(state.table.rows, state.mapping, {
       currentYear: state.currentYear,
       includeClosed: state.includeClosed,
-      filters: state.filters
+      filters: state.filters,
+      // Only pass an override when the user has chosen one; null means auto-detect.
+      dayFirst: state.dayFirst == null ? undefined : state.dayFirst
     });
 
     var r = state.results;
@@ -520,6 +537,7 @@
     el.yearLabels.current.textContent = r.currentYear;
     el.yearLabels.next.textContent = r.nextYear;
 
+    renderDataQuality();
     renderColumn('current', r.years[r.currentYear], r.currentYear);
     renderColumn('next', r.years[r.nextYear], r.nextYear);
     renderHealth();
@@ -679,6 +697,156 @@
         '<div class="coverage-ratio">' + Math.round(ratio) + '%</div>' +
         '<div class="coverage-sub">' + compact(weighted) + ' weighted against ' + compact(target) + ' target</div>';
     }
+  }
+
+  // Data Quality card — what was parsed, what was dropped and why, the spread
+  // of deals by year, and a manual date-format override with a live preview.
+  // Filter-independent: it describes the file as loaded, not the current view.
+  function renderDataQuality() {
+    if (!state.results || !el.dataQuality) return;
+    var r = state.results;
+    var yc = r.yearCounts || {};
+    var years = Object.keys(yc).map(Number).sort(function (a, b) { return a - b; });
+    var parsed = years.reduce(function (s, y) { return s + yc[y]; }, 0);
+    var inRange = (yc[r.currentYear] || 0) + (yc[r.nextYear] || 0);
+    var outside = parsed - inRange;
+    var skipped = r.skipped || 0;
+    var skippedRows = r.skippedRows || [];
+
+    // ---- Summary chips ----
+    var summary =
+      '<div class="dq-summary">' +
+        dqChip(parsed + skipped, 'rows in file') +
+        dqChip(parsed, 'parsed') +
+        dqChip(inRange, 'in ' + r.currentYear + '/' + r.nextYear, 'good') +
+        dqChip(outside, 'other years', outside ? 'warn' : '') +
+        dqChip(skipped, 'skipped', skipped ? 'bad' : '') +
+      '</div>';
+
+    // ---- By-year distribution ----
+    var maxCount = years.reduce(function (m, y) { return Math.max(m, yc[y]); }, 0) || 1;
+    var bars = years.map(function (y) {
+      var inWindow = (y === r.currentYear || y === r.nextYear);
+      var pct = Math.round(yc[y] / maxCount * 100);
+      return '<div class="dq-bar-row' + (inWindow ? ' in-range' : '') + '">' +
+        '<span class="dq-bar-label">' + y + '</span>' +
+        '<span class="dq-bar-track"><span class="dq-bar-fill" style="width:' + pct + '%"></span></span>' +
+        '<span class="dq-bar-count">' + yc[y] + '</span>' +
+      '</div>';
+    }).join('');
+    var yearBlock =
+      '<div class="dq-block">' +
+        '<h3>Deals by close-date year</h3>' +
+        (years.length
+          ? '<div class="dq-bars">' + bars + '</div>' +
+            '<p class="muted dq-note">Highlighted rows fall inside the ' +
+              r.currentYear + '/' + r.nextYear + ' analysis window. Other years are ' +
+              'parsed correctly but sit outside it — expected for historical or ' +
+              'long-dated deals.</p>'
+          : '<p class="muted">No dated rows parsed.</p>') +
+      '</div>';
+
+    // ---- Date format override + preview ----
+    var current = state.dayFirst === true ? 'dayfirst'
+                : state.dayFirst === false ? 'monthfirst' : 'auto';
+    var activeLabel = r.dayFirst ? 'day / month / year (DD/MM/YYYY)'
+                                 : 'month / day / year (MM/DD/YYYY)';
+    var detectNote = state.dayFirst == null
+      ? 'Auto-detected as ' + activeLabel + '.'
+      : 'Forced to ' + activeLabel + '.';
+    var preview = dqDatePreview(r.dayFirst);
+    var formatBlock =
+      '<div class="dq-block">' +
+        '<h3>Date format</h3>' +
+        '<div class="dq-format-controls">' +
+          dqRadio('auto', 'Auto-detect', current) +
+          dqRadio('dayfirst', 'Day first · DD/MM/YYYY', current) +
+          dqRadio('monthfirst', 'Month first · MM/DD/YYYY', current) +
+        '</div>' +
+        '<p class="muted dq-note">' + escapeHtml(detectNote) +
+          ' If dates look wrong below, switch the format and the whole dashboard updates.</p>' +
+        preview +
+      '</div>';
+
+    // ---- Skipped rows table ----
+    var skippedBlock;
+    if (!skippedRows.length) {
+      skippedBlock =
+        '<div class="dq-block">' +
+          '<h3>Skipped rows</h3>' +
+          '<p class="dq-ok">✓ No rows skipped — every row parsed cleanly.</p>' +
+        '</div>';
+    } else {
+      var rowsHtml = skippedRows.map(function (s) {
+        return '<tr>' +
+          '<td class="num">' + s.row + '</td>' +
+          '<td>' + escapeHtml(s.name || '—') + '</td>' +
+          '<td>' + escapeHtml(s.rawAmount || '—') + '</td>' +
+          '<td>' + escapeHtml(s.rawDate || '—') + '</td>' +
+          '<td><span class="dq-reason dq-reason-' + s.reason.replace(/[^a-z]/g, '') + '">' +
+            escapeHtml(s.reason) + '</span></td>' +
+        '</tr>';
+      }).join('');
+      var capped = skipped > skippedRows.length
+        ? '<p class="muted dq-note">Showing the first ' + skippedRows.length +
+          ' of ' + skipped + ' skipped rows.</p>'
+        : '';
+      skippedBlock =
+        '<div class="dq-block">' +
+          '<h3>Skipped rows <span class="dq-count-pill">' + skipped + '</span></h3>' +
+          '<p class="muted dq-note">These rows could not be read (the amount or ' +
+            'close date would not parse) and are excluded from every figure. ' +
+            'Fix them in the source CSV — or correct the date format above — to recover them.</p>' +
+          '<div class="dq-table-wrap"><table class="data-table dq-skipped-table">' +
+            '<thead><tr><th>Row</th><th>Name</th><th>Amount (raw)</th>' +
+              '<th>Close date (raw)</th><th>Reason</th></tr></thead>' +
+            '<tbody>' + rowsHtml + '</tbody>' +
+          '</table></div>' + capped +
+        '</div>';
+    }
+
+    el.dataQuality.innerHTML =
+      '<h2>Data Quality</h2>' +
+      summary +
+      '<div class="dq-grid">' + yearBlock + formatBlock + '</div>' +
+      skippedBlock;
+  }
+
+  function dqChip(value, label, kind) {
+    return '<div class="dq-chip' + (kind ? ' dq-chip-' + kind : '') + '">' +
+      '<span class="dq-chip-value">' + value + '</span>' +
+      '<span class="dq-chip-label">' + escapeHtml(label) + '</span>' +
+    '</div>';
+  }
+
+  function dqRadio(value, label, current) {
+    return '<label class="dq-radio">' +
+      '<input type="radio" name="dqDateFormat" value="' + value + '"' +
+        (value === current ? ' checked' : '') + ' /> ' +
+      escapeHtml(label) +
+    '</label>';
+  }
+
+  // Show the first few close dates as "raw → parsed" so the user can eyeball
+  // whether the active date format reads them the way they intend.
+  function dqDatePreview(dayFirst) {
+    if (!state.table || !state.mapping || !state.mapping.closeDate) return '';
+    var key = state.mapping.closeDate;
+    var samples = [];
+    var rows = state.table.rows;
+    for (var i = 0; i < rows.length && samples.length < 5; i++) {
+      var raw = rows[i][key];
+      if (raw == null || String(raw).trim() === '') continue;
+      var d = PA.parse.parseDate(raw, dayFirst);
+      samples.push({ raw: String(raw), parsed: d ? fmtDate(d) : '(unparseable)' });
+    }
+    if (!samples.length) return '';
+    return '<div class="dq-preview"><span class="dq-preview-title">Preview</span>' +
+      samples.map(function (s) {
+        return '<div class="dq-preview-row"><code>' + escapeHtml(s.raw) + '</code>' +
+          '<span class="dq-preview-arrow">→</span><strong>' + escapeHtml(s.parsed) + '</strong></div>';
+      }).join('') +
+    '</div>';
   }
 
   // Pipeline Health card — current year only. Safe to call on its own

@@ -21,6 +21,25 @@ For both the current year and next year, side by side:
 probability column it is used directly; otherwise the app estimates a
 probability from each opportunity's stage (see *Weighted forecast* below).
 
+## Data Quality
+
+A full-width **Data Quality** card (just below the filters) makes the parse
+transparent so nothing is dropped without you knowing:
+
+- **Summary** — rows in the file, how many parsed, how many fall inside the
+  analysis window (current/following year), how many sit in other years, and how
+  many were skipped.
+- **Deals by close-date year** — a small bar chart of every parsed year, with the
+  analysis window highlighted. Rows in other years are parsed correctly but sit
+  outside the window (expected for historical or long-dated deals).
+- **Date format** — switch between auto-detect, day-first (DD/MM/YYYY) and
+  month-first (MM/DD/YYYY). A live preview shows the first few close dates as
+  *raw → parsed* so you can confirm the choice; the whole dashboard updates and
+  the setting is remembered.
+- **Skipped rows** — a table of every row that could not be read (the amount or
+  close date would not parse) with its raw values and the reason, so you can fix
+  them in the source CSV — or correct the date format — to recover them.
+
 ## Pipeline Insights
 
 A full-width **Pipeline Insights** card (above the year columns) adds:
@@ -191,7 +210,9 @@ estimates are used (editable in `js/analytics.js`, `DEFAULT_STAGE_WEIGHTS`):
 - **Closed deals** (Won/Lost) are excluded from the pipeline by default; tick
   *Include closed deals* to add them.
 - **Dates**: the app auto-detects day-first (DD/MM/YYYY) vs month-first
-  (MM/DD/YYYY) from your data and shows which it chose in the status bar.
+  (MM/DD/YYYY) from your data and shows which it chose in the status bar. If the
+  guess is wrong (or your dates are mixed), override it in the **Data Quality**
+  card — see below.
 - **Amounts**: currency symbols, thousands separators and `(parentheses)`
   negatives are cleaned automatically.
 

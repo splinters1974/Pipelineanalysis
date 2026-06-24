@@ -184,6 +184,18 @@
     return { style: 'tbl', table: { headerRows: 1, widths: ['*', 'auto', 'auto'], body: body }, layout: TBL_LAYOUT };
   }
 
+  // One-line data-quality caveat so a shared report carries the same context
+  // as the on-screen Data Quality card.
+  function dataQualityNote(r) {
+    var yc = r.yearCounts || {};
+    var parsed = Object.keys(yc).reduce(function (s, y) { return s + yc[y]; }, 0);
+    var inRange = (yc[r.currentYear] || 0) + (yc[r.nextYear] || 0);
+    var fmt = r.dayFirst ? 'DD/MM/YYYY' : 'MM/DD/YYYY';
+    return { text: 'Data quality — ' + parsed + ' parsed · ' + inRange + ' in ' +
+      r.currentYear + '/' + r.nextYear + ' · ' + (r.skipped || 0) + ' skipped · dates ' + fmt,
+      style: 'filterNote' };
+  }
+
   function buildDocDefinition(p) {
     var r = p.results, h = p.health, ins = p.insights, imgs = p.images || {}, meta = p.meta || {};
     var cur = r.currentYear, nxt = r.nextYear;
@@ -195,6 +207,7 @@
       meta.person ? { text: 'Salesperson report', style: 'personTag' } : null,
       { text: 'Generated ' + (meta.generated || '') + '  ·  ' + cur + ' & ' + nxt, style: 'sub' },
       meta.filterSummary ? { text: 'Filtered by — ' + meta.filterSummary, style: 'filterNote' } : null,
+      dataQualityNote(r),
 
       // Page 1 — both years side by side. Built as short two-up rows (rather
       // than two tall columns) so every chart and table renders fully and the

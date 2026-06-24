@@ -36,6 +36,19 @@
     rows.push(['Filters applied', meta.filterSummary || 'None']);
     rows.push([]);
 
+    // Data quality — caveats that travel with the figures.
+    var yc = r.yearCounts || {};
+    var parsed = Object.keys(yc).reduce(function (s, y) { return s + yc[y]; }, 0);
+    var inRange = (yc[r.currentYear] || 0) + (yc[r.nextYear] || 0);
+    rows.push(['Data quality', 'Count']);
+    rows.push(['Rows in file', parsed + (r.skipped || 0)]);
+    rows.push(['Parsed', parsed]);
+    rows.push(['In range (' + r.currentYear + '/' + r.nextYear + ')', inRange]);
+    rows.push(['Other years', parsed - inRange]);
+    rows.push(['Skipped (bad amount/date)', r.skipped || 0]);
+    rows.push(['Date format', r.dayFirst ? 'Day first (DD/MM/YYYY)' : 'Month first (MM/DD/YYYY)']);
+    rows.push([]);
+
     // KPIs
     rows.push(['KPIs', 'Total pipeline', 'Weighted forecast', 'Opportunities']);
     [r.currentYear, r.nextYear].forEach(function (y) {

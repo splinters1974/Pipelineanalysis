@@ -107,9 +107,19 @@
     return n;                        // already a fraction
   }
 
+  // Cap on the number of skipped-row details we retain for the data-quality
+  // panel. The full skipped count is always exact; only the detail list is
+  // bounded so a pathological file can't balloon memory.
+  var MAX_SKIPPED_DETAILS = 500;
+
   /*
    * Build normalised records from raw rows + mapping.
-   * Returns { records, skipped, dayFirst }.
+   * Returns { records, skipped, dayFirst, skippedRows, yearCounts }.
+   *   skippedRows: up to MAX_SKIPPED_DETAILS rows that failed to parse, each
+   *     { row, name, rawAmount, rawDate, reason } — reason is one of
+   *     'bad amount' | 'bad date' | 'bad amount & date'.
+   *   yearCounts: { <year>: count } over every successfully parsed record,
+   *     across all years (before the 2026/2027 window is applied).
    * Each record: { amount, date, year, month, quarter, stage, owner,
    *                product, region, name, probability, weighted }.
    */
@@ -124,11 +134,29 @@
 
     var records = [];
     var skipped = 0;
+    var skippedRows = [];
+    var yearCounts = {};
 
-    rows.forEach(function (r) {
+    rows.forEach(function (r, idx) {
       var amount = PA.parse.cleanNumber(r[mapping.amount]);
       var date = PA.parse.parseDate(r[mapping.closeDate], dayFirst);
-      if (isNaN(amount) || !date) { skipped++; return; }
+      var badAmount = isNaN(amount);
+      var badDate = !date;
+      if (badAmount || badDate) {
+        skipped++;
+        if (skippedRows.length < MAX_SKIPPED_DETAILS) {
+          var reason = badAmount && badDate ? 'bad amount & date'
+                     : badAmount ? 'bad amount' : 'bad date';
+          skippedRows.push({
+            row: idx + 1,
+            name: mapping.name ? (r[mapping.name] || '') : '',
+            rawAmount: r[mapping.amount] == null ? '' : String(r[mapping.amount]),
+            rawDate: r[mapping.closeDate] == null ? '' : String(r[mapping.closeDate]),
+            reason: reason
+          });
+        }
+        return;
+      }
 
       var stage = mapping.stage ? (r[mapping.stage] || '') : '';
       var owner = mapping.owner ? (r[mapping.owner] || '—') : '—';
@@ -165,9 +193,17 @@
         weighted: amount * prob,
         closed: isClosedStage(stage)
       });
+      var yr = date.getUTCFullYear();
+      yearCounts[yr] = (yearCounts[yr] || 0) + 1;
     });
 
-    return { records: records, skipped: skipped, dayFirst: dayFirst };
+    return {
+      records: records,
+      skipped: skipped,
+      dayFirst: dayFirst,
+      skippedRows: skippedRows,
+      yearCounts: yearCounts
+    };
   }
 
   // Sum a numeric field of records grouped by a key function.
@@ -258,6 +294,8 @@
 
     result.skipped = built.skipped;
     result.dayFirst = built.dayFirst;
+    result.skippedRows = built.skippedRows;
+    result.yearCounts = built.yearCounts;
     result.outOfRange = outOfRange;
     result.includeClosed = includeClosed;
     result.totalRecords = records.length;

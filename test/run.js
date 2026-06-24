@@ -108,6 +108,43 @@ eq('year count excludes Finlay awarded only', resFin.years[2026].count, 2);
 // 2025 rows (Legacy 90k won, Old 30k) must be out of range, not counted
 eq('out-of-range count > 0', res.outOfRange >= 2, true);
 
+// ---- Data quality: skip reasons, year counts, date-format override ----
+const builtAll = PA.analytics.buildRecords(table.rows, mapping, {});
+// Sample CSV is clean: nothing skipped, year counts sum to all parsed records.
+eq('sample has no skipped rows', builtAll.skipped, 0);
+eq('skippedRows detail length matches count', builtAll.skippedRows.length, builtAll.skipped);
+const ycSum = Object.keys(builtAll.yearCounts).reduce((s, y) => s + builtAll.yearCounts[y], 0);
+eq('yearCounts sum to parsed records', ycSum, builtAll.records.length);
+eq('yearCounts surfaced on analyze result', res.yearCounts && res.yearCounts[2026] > 0, true);
+eq('2026 in yearCounts matches sample 2026 deals', res.yearCounts[2026],
+  table.rows.filter(r => r['Close Date'].endsWith('2026')).length);
+
+// Skip-reason classification on synthetic bad rows.
+const badRows = [
+  synthRow('Bad', 'Discovery', 'N/A', '15/06/2026'),       // bad amount only
+  synthRow('Bad', 'Discovery', '£50,000', 'not-a-date'),   // bad date only
+  synthRow('Bad', 'Discovery', 'N/A', 'not-a-date')        // both bad
+];
+const builtBad = PA.analytics.buildRecords(badRows, mapping, {});
+eq('three bad rows skipped', builtBad.skipped, 3);
+eq('skippedRows captured all three', builtBad.skippedRows.length, 3);
+eq('reason: bad amount', builtBad.skippedRows[0].reason, 'bad amount');
+eq('reason: bad date', builtBad.skippedRows[1].reason, 'bad date');
+eq('reason: bad amount & date', builtBad.skippedRows[2].reason, 'bad amount & date');
+eq('skippedRows carry raw amount', builtBad.skippedRows[0].rawAmount, 'N/A');
+eq('skippedRows carry raw date', builtBad.skippedRows[1].rawDate, 'not-a-date');
+eq('skippedRows carry 1-based row index', builtBad.skippedRows[2].row, 3);
+
+// Date-format override forces interpretation of an ambiguous date.
+// '06/05/2026' day-first -> 6 May (month index 4); month-first -> 5 Jun (index 5).
+const ambRow = [synthRow('Amb', 'Discovery', '£10,000', '06/05/2026')];
+const dayFirstBuilt = PA.analytics.buildRecords(ambRow, mapping, { dayFirst: true });
+const monthFirstBuilt = PA.analytics.buildRecords(ambRow, mapping, { dayFirst: false });
+eq('override day-first reads month as May', dayFirstBuilt.records[0].month, 4);
+eq('override month-first reads month as June', monthFirstBuilt.records[0].month, 5);
+eq('override day-first reported back', dayFirstBuilt.dayFirst, true);
+eq('override month-first reported back', monthFirstBuilt.dayFirst, false);
+
 // Currency cleaning: "£120,000" -> 120000
 approx('cleanNumber £120,000', PA.parse.cleanNumber('£120,000'), 120000);
 approx('cleanNumber (70,000) negative', PA.parse.cleanNumber('(70,000)'), -70000);
@@ -361,6 +398,9 @@ function has(label, needle) {
 }
 has('title', 'Pipeline Analysis summary');
 has('generated date', '2026-06-15');
+has('data quality section', 'Data quality,Count');
+has('data quality skipped row', 'Skipped (bad amount/date),0');
+has('data quality date format', 'Date format,Day first (DD/MM/YYYY)');
 has('KPI header', 'KPIs,Total pipeline,Weighted forecast,Opportunities');
 has('2026 total', '1170500');
 has('by stage section', 'By stage — 2026');
@@ -406,6 +446,7 @@ function docHas(label, needle) {
   if (!ok) failures++;
 }
 docHas('title', 'Pipeline Analysis');
+docHas('data quality note', 'Data quality — ');
 docHas('current year heading', 'Current year — 2026');
 docHas('following year heading', 'Following year — 2027');
 docHas('value by stage on page 1', 'Value by stage');

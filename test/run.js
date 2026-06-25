@@ -133,7 +133,13 @@ eq('reason: bad date', builtBad.skippedRows[1].reason, 'bad date');
 eq('reason: bad amount & date', builtBad.skippedRows[2].reason, 'bad amount & date');
 eq('skippedRows carry raw amount', builtBad.skippedRows[0].rawAmount, 'N/A');
 eq('skippedRows carry raw date', builtBad.skippedRows[1].rawDate, 'not-a-date');
+eq('skippedRows carry raw stage', builtBad.skippedRows[0].rawStage, 'Discovery');
 eq('skippedRows carry 1-based row index', builtBad.skippedRows[2].row, 3);
+
+// rawStage is '' when the row has no stage mapping.
+const noStageMap = Object.assign({}, mapping, { stage: null });
+const builtNoStage = PA.analytics.buildRecords(badRows, noStageMap, {});
+eq('skippedRows rawStage blank without stage mapping', builtNoStage.skippedRows[0].rawStage, '');
 
 // Date-format override forces interpretation of an ambiguous date.
 // '06/05/2026' day-first -> 6 May (month index 4); month-first -> 5 Jun (index 5).

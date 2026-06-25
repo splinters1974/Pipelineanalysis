@@ -150,6 +150,7 @@
           skippedRows.push({
             row: idx + 1,
             name: mapping.name ? (r[mapping.name] || '') : '',
+            rawStage: mapping.stage ? (r[mapping.stage] || '') : '',
             rawAmount: r[mapping.amount] == null ? '' : String(r[mapping.amount]),
             rawDate: r[mapping.closeDate] == null ? '' : String(r[mapping.closeDate]),
             reason: reason

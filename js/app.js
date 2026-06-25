@@ -781,6 +781,7 @@
         return '<tr>' +
           '<td class="num">' + s.row + '</td>' +
           '<td>' + escapeHtml(s.name || '—') + '</td>' +
+          '<td>' + escapeHtml(s.rawStage || '—') + '</td>' +
           '<td>' + escapeHtml(s.rawAmount || '—') + '</td>' +
           '<td>' + escapeHtml(s.rawDate || '—') + '</td>' +
           '<td><span class="dq-reason dq-reason-' + s.reason.replace(/[^a-z]/g, '') + '">' +
@@ -798,7 +799,7 @@
             'close date would not parse) and are excluded from every figure. ' +
             'Fix them in the source CSV — or correct the date format above — to recover them.</p>' +
           '<div class="dq-table-wrap"><table class="data-table dq-skipped-table">' +
-            '<thead><tr><th>Row</th><th>Name</th><th>Amount (raw)</th>' +
+            '<thead><tr><th>Row</th><th>Name</th><th>Stage</th><th>Amount (raw)</th>' +
               '<th>Close date (raw)</th><th>Reason</th></tr></thead>' +
             '<tbody>' + rowsHtml + '</tbody>' +
           '</table></div>' + capped +

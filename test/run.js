@@ -141,6 +141,28 @@ const noStageMap = Object.assign({}, mapping, { stage: null });
 const builtNoStage = PA.analytics.buildRecords(badRows, noStageMap, {});
 eq('skippedRows rawStage blank without stage mapping', builtNoStage.skippedRows[0].rawStage, '');
 
+// Closed Won / Closed Lost rows that fail to parse are hidden from the detail
+// list (decided deals — not actionable) and counted separately in skippedClosed.
+const closedBadRows = [
+  synthRow('Bad', 'Discovery', 'N/A', '15/06/2026'),       // actionable
+  synthRow('Bad', 'Closed Lost', 'N/A', '15/06/2026'),     // hidden
+  synthRow('Bad', 'Closed Won', '£10,000', 'not-a-date')   // hidden
+];
+const builtClosed = PA.analytics.buildRecords(closedBadRows, mapping, {});
+eq('closed-stage bad rows excluded from skipped count', builtClosed.skipped, 1);
+eq('closed-stage bad rows excluded from skippedRows', builtClosed.skippedRows.length, 1);
+eq('closed-stage bad rows counted in skippedClosed', builtClosed.skippedClosed, 2);
+eq('remaining skipped row is the open Discovery one', builtClosed.skippedRows[0].rawStage, 'Discovery');
+
+// buildSkippedCsv emits a header plus one line per actionable skipped row.
+const skipCsv = PA.export.buildSkippedCsv({ skippedRows: builtBad.skippedRows });
+const skipLines = skipCsv.split('\r\n');
+eq('skipped CSV has header + 3 rows', skipLines.length, 4);
+eq('skipped CSV header', skipLines[0],
+  'Row,Opportunity name,Stage,Amount (raw),Close date (raw),Reason');
+eq('skipped CSV carries the reason', skipLines[1].indexOf('bad amount') !== -1, true);
+eq('skipped CSV empty when nothing skipped', PA.export.buildSkippedCsv({ skippedRows: [] }), '');
+
 // Date-format override forces interpretation of an ambiguous date.
 // '06/05/2026' day-first -> 6 May (month index 4); month-first -> 5 Jun (index 5).
 const ambRow = [synthRow('Amb', 'Discovery', '£10,000', '06/05/2026')];

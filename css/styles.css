@@ -638,7 +638,8 @@ main { padding: 28px 0 48px; }
 .dq-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 8px;
 }
-.dq-block h3 { font-size: 14px; margin: 0 0 12px; color: var(--ink); }
+.dq-block h3 { font-size: 14px; margin: 0 0 12px; color: var(--ink); display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.dq-export-btn { margin-left: auto; padding: 4px 10px; font-size: 12px; }
 .dq-note { margin: 10px 0 0; font-size: 12px; }
 
 .dq-bars { display: flex; flex-direction: column; gap: 6px; }

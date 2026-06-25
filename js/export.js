@@ -41,11 +41,12 @@
     var parsed = Object.keys(yc).reduce(function (s, y) { return s + yc[y]; }, 0);
     var inRange = (yc[r.currentYear] || 0) + (yc[r.nextYear] || 0);
     rows.push(['Data quality', 'Count']);
-    rows.push(['Rows in file', parsed + (r.skipped || 0)]);
+    rows.push(['Rows in file', parsed + (r.skipped || 0) + (r.skippedClosed || 0)]);
     rows.push(['Parsed', parsed]);
     rows.push(['In range (' + r.currentYear + '/' + r.nextYear + ')', inRange]);
     rows.push(['Other years', parsed - inRange]);
     rows.push(['Skipped (bad amount/date)', r.skipped || 0]);
+    rows.push(['Skipped Closed Won/Lost (hidden)', r.skippedClosed || 0]);
     rows.push(['Date format', r.dayFirst ? 'Day first (DD/MM/YYYY)' : 'Month first (MM/DD/YYYY)']);
     rows.push([]);
 
@@ -157,5 +158,20 @@
     }).join('\r\n');
   }
 
-  PA.export = { buildSummaryCsv: buildSummaryCsv };
+  // A standalone CSV of every actionable skipped row (Closed Won/Lost rows are
+  // already excluded upstream). Opens directly in Excel. Returns '' when there
+  // is nothing skipped.
+  function buildSkippedCsv(results) {
+    var skippedRows = (results && results.skippedRows) || [];
+    if (!skippedRows.length) return '';
+    var rows = [['Row', 'Opportunity name', 'Stage', 'Amount (raw)', 'Close date (raw)', 'Reason']];
+    skippedRows.forEach(function (s) {
+      rows.push([s.row, s.name || '', s.rawStage || '', s.rawAmount || '', s.rawDate || '', s.reason]);
+    });
+    return rows.map(function (row) {
+      return row.map(csvEscape).join(',');
+    }).join('\r\n');
+  }
+
+  PA.export = { buildSummaryCsv: buildSummaryCsv, buildSkippedCsv: buildSkippedCsv };
 })(window.PA = window.PA || {});

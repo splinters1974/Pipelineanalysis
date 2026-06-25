@@ -107,17 +107,15 @@
     return n;                        // already a fraction
   }
 
-  // Cap on the number of skipped-row details we retain for the data-quality
-  // panel. The full skipped count is always exact; only the detail list is
-  // bounded so a pathological file can't balloon memory.
-  var MAX_SKIPPED_DETAILS = 500;
-
   /*
    * Build normalised records from raw rows + mapping.
-   * Returns { records, skipped, dayFirst, skippedRows, yearCounts }.
-   *   skippedRows: up to MAX_SKIPPED_DETAILS rows that failed to parse, each
-   *     { row, name, rawAmount, rawDate, reason } — reason is one of
-   *     'bad amount' | 'bad date' | 'bad amount & date'.
+   * Returns { records, skipped, skippedClosed, dayFirst, skippedRows, yearCounts }.
+   *   skippedRows: every actionable row that failed to parse, each
+   *     { row, name, rawStage, rawAmount, rawDate, reason } — reason is one of
+   *     'bad amount' | 'bad date' | 'bad amount & date'. Closed Won/Lost rows
+   *     that fail to parse are excluded here and counted in skippedClosed.
+   *   skipped: count of actionable (non-closed) skipped rows = skippedRows.length.
+   *   skippedClosed: count of Closed Won/Lost rows hidden from the detail list.
    *   yearCounts: { <year>: count } over every successfully parsed record,
    *     across all years (before the 2026/2027 window is applied).
    * Each record: { amount, date, year, month, quarter, stage, owner,
@@ -134,6 +132,7 @@
 
     var records = [];
     var skipped = 0;
+    var skippedClosed = 0;
     var skippedRows = [];
     var yearCounts = {};
 
@@ -143,19 +142,25 @@
       var badAmount = isNaN(amount);
       var badDate = !date;
       if (badAmount || badDate) {
-        skipped++;
-        if (skippedRows.length < MAX_SKIPPED_DETAILS) {
-          var reason = badAmount && badDate ? 'bad amount & date'
-                     : badAmount ? 'bad amount' : 'bad date';
-          skippedRows.push({
-            row: idx + 1,
-            name: mapping.name ? (r[mapping.name] || '') : '',
-            rawStage: mapping.stage ? (r[mapping.stage] || '') : '',
-            rawAmount: r[mapping.amount] == null ? '' : String(r[mapping.amount]),
-            rawDate: r[mapping.closeDate] == null ? '' : String(r[mapping.closeDate]),
-            reason: reason
-          });
+        // Closed Won / Closed Lost rows are decided deals — a bad amount or
+        // date on them is not actionable, so hide them from the skipped list
+        // (counted separately for transparency) rather than ask the user to fix.
+        var rawStage = mapping.stage ? (r[mapping.stage] || '') : '';
+        if (isClosedStage(rawStage)) {
+          skippedClosed++;
+          return;
         }
+        skipped++;
+        var reason = badAmount && badDate ? 'bad amount & date'
+                   : badAmount ? 'bad amount' : 'bad date';
+        skippedRows.push({
+          row: idx + 1,
+          name: mapping.name ? (r[mapping.name] || '') : '',
+          rawStage: rawStage,
+          rawAmount: r[mapping.amount] == null ? '' : String(r[mapping.amount]),
+          rawDate: r[mapping.closeDate] == null ? '' : String(r[mapping.closeDate]),
+          reason: reason
+        });
         return;
       }
 
@@ -201,6 +206,7 @@
     return {
       records: records,
       skipped: skipped,
+      skippedClosed: skippedClosed,
       dayFirst: dayFirst,
       skippedRows: skippedRows,
       yearCounts: yearCounts
@@ -294,6 +300,7 @@
     });
 
     result.skipped = built.skipped;
+    result.skippedClosed = built.skippedClosed;
     result.dayFirst = built.dayFirst;
     result.skippedRows = built.skippedRows;
     result.yearCounts = built.yearCounts;

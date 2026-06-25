@@ -182,6 +182,18 @@
       csv, 'text/csv;charset=utf-8');
   }
 
+  function exportSkippedCsv() {
+    if (!state.results) return;
+    var csv = PA.export.buildSkippedCsv(state.results);
+    if (!csv) {
+      setStatus('No skipped rows to download — every open row parsed cleanly.', 'info');
+      return;
+    }
+    // Prefix a UTF-8 BOM so Excel opens the file with the right encoding.
+    downloadFile('pipeline-analysis' + personSlug() + '-skipped-rows-' +
+      new Date().toISOString().slice(0, 10) + '.csv', '\uFEFF' + csv, 'text/csv;charset=utf-8');
+  }
+
   // The curated top-proposed list shown in the UI = auto top-10 minus removed,
   // plus any manually added opportunities. Shared by the table and the PDF.
   function computeShownProposed(ins) {
@@ -711,12 +723,13 @@
     var inRange = (yc[r.currentYear] || 0) + (yc[r.nextYear] || 0);
     var outside = parsed - inRange;
     var skipped = r.skipped || 0;
+    var skippedClosed = r.skippedClosed || 0;
     var skippedRows = r.skippedRows || [];
 
     // ---- Summary chips ----
     var summary =
       '<div class="dq-summary">' +
-        dqChip(parsed + skipped, 'rows in file') +
+        dqChip(parsed + skipped + skippedClosed, 'rows in file') +
         dqChip(parsed, 'parsed') +
         dqChip(inRange, 'in ' + r.currentYear + '/' + r.nextYear, 'good') +
         dqChip(outside, 'other years', outside ? 'warn' : '') +
@@ -769,15 +782,24 @@
       '</div>';
 
     // ---- Skipped rows table ----
+    var closedNote = skippedClosed
+      ? '<p class="muted dq-note">' + skippedClosed + ' Closed Won/Lost row' +
+        (skippedClosed === 1 ? '' : 's') + ' with unreadable data ' +
+        (skippedClosed === 1 ? 'was' : 'were') + ' hidden — those deals are ' +
+        'already decided, so nothing needs fixing.</p>'
+      : '';
     var skippedBlock;
     if (!skippedRows.length) {
       skippedBlock =
         '<div class="dq-block">' +
           '<h3>Skipped rows</h3>' +
-          '<p class="dq-ok">✓ No rows skipped — every row parsed cleanly.</p>' +
+          '<p class="dq-ok">✓ No rows skipped — every open row parsed cleanly.</p>' +
+          closedNote +
         '</div>';
     } else {
-      var rowsHtml = skippedRows.map(function (s) {
+      var DISPLAY_CAP = 200;
+      var shownRows = skippedRows.slice(0, DISPLAY_CAP);
+      var rowsHtml = shownRows.map(function (s) {
         return '<tr>' +
           '<td class="num">' + s.row + '</td>' +
           '<td>' + escapeHtml(s.name || '—') + '</td>' +
@@ -788,16 +810,19 @@
             escapeHtml(s.reason) + '</span></td>' +
         '</tr>';
       }).join('');
-      var capped = skipped > skippedRows.length
-        ? '<p class="muted dq-note">Showing the first ' + skippedRows.length +
-          ' of ' + skipped + ' skipped rows.</p>'
+      var capped = skippedRows.length > shownRows.length
+        ? '<p class="muted dq-note">Showing the first ' + shownRows.length +
+          ' of ' + skippedRows.length + ' skipped rows — download for the full list.</p>'
         : '';
       skippedBlock =
         '<div class="dq-block">' +
-          '<h3>Skipped rows <span class="dq-count-pill">' + skipped + '</span></h3>' +
-          '<p class="muted dq-note">These rows could not be read (the amount or ' +
+          '<h3>Skipped rows <span class="dq-count-pill">' + skipped + '</span>' +
+            '<button type="button" id="dqExportSkippedBtn" class="btn btn-ghost dq-export-btn">' +
+              'Download skipped rows (Excel/CSV)</button></h3>' +
+          '<p class="muted dq-note">These open rows could not be read (the amount or ' +
             'close date would not parse) and are excluded from every figure. ' +
             'Fix them in the source CSV — or correct the date format above — to recover them.</p>' +
+          closedNote +
           '<div class="dq-table-wrap"><table class="data-table dq-skipped-table">' +
             '<thead><tr><th>Row</th><th>Name</th><th>Stage</th><th>Amount (raw)</th>' +
               '<th>Close date (raw)</th><th>Reason</th></tr></thead>' +
@@ -811,6 +836,9 @@
       summary +
       '<div class="dq-grid">' + yearBlock + formatBlock + '</div>' +
       skippedBlock;
+
+    var skippedBtn = document.getElementById('dqExportSkippedBtn');
+    if (skippedBtn) skippedBtn.addEventListener('click', exportSkippedCsv);
   }
 
   function dqChip(value, label, kind) {

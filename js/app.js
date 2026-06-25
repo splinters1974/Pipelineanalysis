@@ -737,14 +737,25 @@
       '</div>';
 
     // ---- By-year distribution ----
-    var maxCount = years.reduce(function (m, y) { return Math.max(m, yc[y]); }, 0) || 1;
-    var bars = years.map(function (y) {
-      var inWindow = (y === r.currentYear || y === r.nextYear);
-      var pct = Math.round(yc[y] / maxCount * 100);
-      return '<div class="dq-bar-row' + (inWindow ? ' in-range' : '') + '">' +
-        '<span class="dq-bar-label">' + y + '</span>' +
+    // Years 2030+ are collapsed into a single "2030 onwards" bucket so the
+    // chart isn't stretched out by sparse long-dated deals.
+    var FUTURE_FROM = 2030;
+    var buckets = [];
+    var futureCount = 0;
+    years.forEach(function (y) {
+      if (y >= FUTURE_FROM) { futureCount += yc[y]; return; }
+      buckets.push({ label: String(y), count: yc[y],
+        inWindow: (y === r.currentYear || y === r.nextYear) });
+    });
+    if (futureCount) buckets.push({ label: FUTURE_FROM + ' onwards', count: futureCount, inWindow: false });
+
+    var maxCount = buckets.reduce(function (m, b) { return Math.max(m, b.count); }, 0) || 1;
+    var bars = buckets.map(function (b) {
+      var pct = Math.round(b.count / maxCount * 100);
+      return '<div class="dq-bar-row' + (b.inWindow ? ' in-range' : '') + '">' +
+        '<span class="dq-bar-label">' + b.label + '</span>' +
         '<span class="dq-bar-track"><span class="dq-bar-fill" style="width:' + pct + '%"></span></span>' +
-        '<span class="dq-bar-count">' + yc[y] + '</span>' +
+        '<span class="dq-bar-count">' + b.count + '</span>' +
       '</div>';
     }).join('');
     var yearBlock =

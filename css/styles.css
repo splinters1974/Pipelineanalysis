@@ -643,8 +643,8 @@ main { padding: 28px 0 48px; }
 .dq-note { margin: 10px 0 0; font-size: 12px; }
 
 .dq-bars { display: flex; flex-direction: column; gap: 6px; }
-.dq-bar-row { display: grid; grid-template-columns: 52px 1fr 40px; align-items: center; gap: 8px; }
-.dq-bar-label { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.dq-bar-row { display: grid; grid-template-columns: 96px 1fr 40px; align-items: center; gap: 8px; }
+.dq-bar-label { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dq-bar-track { height: 14px; background: #f1f5f9; border-radius: 7px; overflow: hidden; }
 .dq-bar-fill { display: block; height: 100%; background: #cbd5e1; border-radius: 7px; }
 .dq-bar-count { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }

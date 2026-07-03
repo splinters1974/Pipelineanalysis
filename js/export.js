@@ -10,6 +10,9 @@
 
   function csvEscape(v) {
     var s = (v == null) ? '' : String(v);
+    // Neutralise formula injection: cells starting with = @ + - would execute
+    // as formulas in Excel/Sheets. Plain numbers (incl. negatives) are safe.
+    if (/^[=@+\-]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s;
     if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
     return s;
   }

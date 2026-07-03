@@ -163,6 +163,27 @@ eq('skipped CSV header', skipLines[0],
 eq('skipped CSV carries the reason', skipLines[1].indexOf('bad amount') !== -1, true);
 eq('skipped CSV empty when nothing skipped', PA.export.buildSkippedCsv({ skippedRows: [] }), '');
 
+// CSV formula injection: cells starting with = @ + - are prefixed with a
+// quote so Excel/Sheets won't execute them; plain negative numbers are not.
+const injCsv = PA.export.buildSkippedCsv({ skippedRows: [{
+  row: 1, name: '=HYPERLINK("http://evil","x")', rawStage: '@cmd',
+  rawAmount: '-500', rawDate: '+1234', reason: 'bad amount'
+}] });
+const injLine = injCsv.split('\r\n')[1];
+eq('formula name neutralised', injLine.indexOf('"\'=HYPERLINK') !== -1, true);
+eq('@-prefixed stage neutralised', injLine.indexOf("'@cmd") !== -1, true);
+eq('negative number not mangled', injLine.indexOf(',-500,') !== -1, true);
+eq('+prefixed value neutralised', injLine.indexOf("'+1234") !== -1, true);
+
+// Out-of-range dates are rejected, not rolled forward by Date.UTC.
+eq('month 25 rejected', PA.parse.parseDate('13/25/2026', true), null);
+eq('31 Feb rejected', PA.parse.parseDate('31/02/2026', true), null);
+eq('valid end-of-month still parses', PA.parse.parseDate('31/01/2026', true).getUTCDate(), 31);
+const rollRow = [synthRow('Roll', 'Discovery', '£10,000', '13/25/2026')];
+const builtRoll = PA.analytics.buildRecords(rollRow, mapping, {});
+eq('rollover date lands in skipped rows', builtRoll.skippedRows.length, 1);
+eq('rollover date reason is bad date', builtRoll.skippedRows[0].reason, 'bad date');
+
 // Date-format override forces interpretation of an ambiguous date.
 // '06/05/2026' day-first -> 6 May (month index 4); month-first -> 5 Jun (index 5).
 const ambRow = [synthRow('Amb', 'Discovery', '£10,000', '06/05/2026')];

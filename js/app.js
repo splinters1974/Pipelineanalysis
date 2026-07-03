@@ -189,8 +189,9 @@
       setStatus('No skipped rows to download — every open row parsed cleanly.', 'info');
       return;
     }
+    // No personSlug(): skipped rows are whole-file, unaffected by filters.
     // Prefix a UTF-8 BOM so Excel opens the file with the right encoding.
-    downloadFile('pipeline-analysis' + personSlug() + '-skipped-rows-' +
+    downloadFile('pipeline-analysis-skipped-rows-' +
       new Date().toISOString().slice(0, 10) + '.csv', '\uFEFF' + csv, 'text/csv;charset=utf-8');
   }
 
@@ -533,7 +534,7 @@
 
     var r = state.results;
     var bits = [
-      r.totalRecords + ' opportunities parsed',
+      r.totalRecords + ' opportunities in view',
       r.outOfRange + ' outside ' + r.currentYear + '/' + r.nextYear,
       r.skipped + ' skipped (bad amount/date)'
     ];
@@ -737,17 +738,19 @@
       '</div>';
 
     // ---- By-year distribution ----
-    // Years 2030+ are collapsed into a single "2030 onwards" bucket so the
-    // chart isn't stretched out by sparse long-dated deals.
-    var FUTURE_FROM = 2030;
+    // Distant future years are collapsed into a single "N onwards" bucket so
+    // the chart isn't stretched out by sparse long-dated deals. The bucket
+    // never absorbs the analysis-window years, so the highlighted bars keep
+    // working as the calendar advances past 2030.
+    var futureFrom = Math.max(2030, r.nextYear + 1);
     var buckets = [];
     var futureCount = 0;
     years.forEach(function (y) {
-      if (y >= FUTURE_FROM) { futureCount += yc[y]; return; }
+      if (y >= futureFrom) { futureCount += yc[y]; return; }
       buckets.push({ label: String(y), count: yc[y],
         inWindow: (y === r.currentYear || y === r.nextYear) });
     });
-    if (futureCount) buckets.push({ label: FUTURE_FROM + ' onwards', count: futureCount, inWindow: false });
+    if (futureCount) buckets.push({ label: futureFrom + ' onwards', count: futureCount, inWindow: false });
 
     var maxCount = buckets.reduce(function (m, b) { return Math.max(m, b.count); }, 0) || 1;
     var bars = buckets.map(function (b) {

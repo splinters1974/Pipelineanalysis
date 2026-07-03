@@ -144,8 +144,15 @@
   }
 
   function makeDate(y, mIndex, d) {
+    // Reject out-of-range components instead of letting Date.UTC roll them
+    // forward (e.g. month 25 -> next year) — bad dates must surface as
+    // unparseable so they land in the skipped-rows table, not the analysis.
+    if (mIndex < 0 || mIndex > 11 || d < 1 || d > 31) return null;
     var dt = new Date(Date.UTC(y, mIndex, d, 12, 0, 0));
-    return isNaN(dt.getTime()) ? null : dt;
+    if (isNaN(dt.getTime())) return null;
+    // Catch day overflow within a valid month (31 Feb -> 2/3 Mar).
+    if (dt.getUTCMonth() !== mIndex || dt.getUTCDate() !== d) return null;
+    return dt;
   }
 
   /*
